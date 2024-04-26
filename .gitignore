@@ -1,0 +1,5 @@
+.vscode
+build/
+*.pyc
+VisionaryImages/
+VisionaryToPointCloud/

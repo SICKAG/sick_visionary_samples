@@ -1,0 +1,245 @@
+= Finding and connecting to Visionary devices
+:toclevels: 4
+:source-highlighter: rouge
+:icons: font
+:toc:
+
+This README gives an introduction to the C++ and Python code examples in this folder on the subject of finding Visionary cameras in the network and configuring their IP addresses. Last but not least it describes how to establish a connection and read-out device information.
+
+== How to run the samples
+
+[NOTE]
+====
+Remember to adjust the command line arguments like IP address (`-i`) and device type (`-d`) to match your specific device.
+====
+
+**C++**
+
+:relfileprefix: ../
+Either build and run the samples from the top level directory as described in xref:README.adoc#getting-started[Getting Started] or build and run the samples from the sample subdirectory using its CmakeLists.txt file.
+
+**Find sensor**
+[source,bash]
+----
+cd build/
+./find_sensor -i192.168.1.100/24
+----
+
+**Configure sensor**
+[source,bash]
+----
+cd build/
+configure_sensor -oXX:XX:XX:XX:XX:XX -c1 -i192.168.1.10/24 -n192.168.136.101 -m255.255.255.0
+----
+
+**Hello sensor**
+[source,bash]
+----
+cd build/
+./hello_sensor -i192.168.1.10 -dVisionary-S
+----
+
+**Python**
+
+[NOTE]
+====
+Make sure you followed the prerequisite steps in xref:README.adoc#getting-started[Getting Started]
+====
+
+To run the Python samples, execute the following command from the **top-level directory**:
+
+**Find sensor**
+[source,bash]
+----
+python3 -m finding_and_connecting_devices.python.find_sensor -i"192.168.136.1/24"
+----
+
+**Configure sensor**
+[source,bash]
+----
+python -m finding_and_connecting_devices.python.configure_sensor -i"192.168.136.1/24" -o"XX:XX:XX:XX:XX:XX" -n"192.168.136.13" -m"255.255.255.0" -c"2"
+----
+
+**Hello sensor**
+[source,bash]
+----
+python -m finding_and_connecting_devices.python.hello_sensor -i"192.168.136.10" -d"Visionary-T Mini"
+----
+
+== Find and configure
+
+=== Find Sensor
+
+This example demonstrates how to discover all available Visionary cameras in a given network. As soon as a Visionary camera device is identified its device information will also be displayed. For example, the IP address, serial number, MAC address and so on.
+
+==== Usage
+
+When running the sample executable it will print usage information.
+
+----
+./build/find_sensor [option]*
+where option is one of
+-h          show this help and exit
+-i<IP>      ip address of the interface on which the scan is performed.
+            It is expected to be in a CIDR manner,
+            i.e., using ip address and the length of network prefix seperated by /.
+            For example, -i192.168.1.100/24
+            Note the range of prefix is [0, 32].
+----
+
+To actually perform a find_sensor the mandatory parameters -i need to be provided e.g. `./build/find_sensor -i192.168.1.100/24`.
+
+==== Code exapmple
+
+**Step 1**: Instantiate VisionaryAutoIP
+
+The VisionaryAutoIP class provides IP address relevant features. For example, discovery of Visionary camera devices and IP configuration of a specific device in the network.  
+Instantiate VisionaryAutoIP with a host IP address, i.e., the IP address of the interface on which the Visionary camera device discovery is performed, and the prefix length of the network mask.
+
+**C++**
+[source,c++]
+----
+include::cpp/find_sensor.cpp[tag=device_discovery]
+----
+
+**Python**
+[source,python]
+----
+include::python/find_sensor.py[tag=find_sensor]
+----
+
+**Step 2**: Get the device information
+
+Once Visionary camera devices are discovered, concrete device information can be retrieved.
+
+**C++**
+[source,c++]
+----
+include::cpp/find_sensor.cpp[tag=ip_scan]
+----
+
+**Python**
+[source, python]
+----
+include::python/find_sensor.py[tag=get_deviceInformation]
+----
+
+=== Configure Sensor
+
+This example demonstrates how to configure a new IP address to a Visionary camera device.
+
+==== Usage
+
+When running the sample executable it will print usage information.
+
+----
+./build/configure_sensor [option]*
+where options are
+-h            show this help and exit
+-o<MAC>       mac address of the device to assign
+-i<IP>        ip address of the interface on which the scan is performed.
+              It is expected to be in a CIDR manner,
+              i.e., using ip address and the length of network prefix seperated by /.
+              For example, -i192.168.1.100/24
+              Note the range of prefix is [0, 32].
+-c<version>   cola version either  -c1 (COLA1) or -c2 (COLA2)
+-n<IP>        new ip address of the device
+-m<mask>      network mask of the device
+-g<IP>        gateway of the device
+-d            enable dhcp
+----
+
+To actually configure an ip address the mandatory parameters -o, -c, -i, -n and -m need to be provided e.g. `./build/configure_sensor -oXX:XX:XX:XX:XX:XX -c1 -i192.168.1.10/24 -n192.168.136.101 -m255.255.255.0`.
+
+==== Code example
+
+**Step 1**: Instantiate VisionaryAutoIP
+
+The VisionaryAutoIP class provides IP address relevant features. For example, discovery of Visionary camera devices and IP configuration of a specific device in the network.  
+Instantiate VisionaryAutoIP with a host IP address, i.e., the IP address of the interface on which the Visionary camera device discovery is performed, and the prefix length of the network mask.
+
+**C++**
+[source,c++]
+----
+include::cpp/find_sensor.cpp[tag=device_discovery]
+----
+
+**Python**
+[source,python]
+----
+include::python/find_sensor.py[tag=find_sensor]
+----
+
+**Step 2**: Configure Visionary camera device
+
+Configure a specific Visionary camera device in the network.
+
+**C++**
+[source,c++]
+----
+include::cpp/configure_sensor.cpp[tag=ip_assign]
+----
+
+**Python**
+[source, python]
+----
+include::python/configure_sensor.py[tag=configure_sensor]
+----
+
+== Optional
+
+=== Hello Sensor
+
+This example illustrates the initial interaction with a Visionary camera device. It demonstrates how to establish a connection with the device and retrieve its device Identification.
+
+==== Step 1: Open a control connection
+The first step is to create a `camera control object` and specifing the right `VisionaryType`. The VisionaryControl class provides an interface for controlling a Visionary Camera, including managing the connection, logging in and out, and controlling data acquisition.
+To establish a connection, invoke the `open()` method, specifying the device's IP address as an argument.
+
+**C++**
+[source,c++]
+----
+include::cpp/hello_sensor.cpp[tag=control_connection]
+----
+
+NOTE: Run the python script from the repository root with the following command:
+      *python3 -m finding_and_connecting_devices.python.hello_sensor -iDEVICEIP -tDEVICETYPE*. 
+      Change DEVICEIP and DEVICETYPE to match your device.
+
+**Python**
+[source,python]
+----
+include::python/hello_sensor.py[tag=control_connection]
+----
+
+==== Step 2: Get the deviceIdent
+
+Once a connection to the device has been successfully established, you can retrieve the device’s identification information by invoking the `getDeviceIdent()` method. This method returns a struct of two strings that represents the device’s name and version.
+
+**C++**
+[source,c++]
+----
+include::cpp/hello_sensor.cpp[tag=get_deviceIdent]
+----
+
+**Python**
+[source, python]
+----
+include::python/hello_sensor.py[tag=get_deviceIdent]
+----
+
+==== Final step: Close the control connection
+Lastly we disconnect from the control channel.
+
+**C++**
+
+In C++ this is done automatically in the control object destructor.
+
+
+**Python**
+
+In python we call the `close()` method.
+[source,python]
+----
+include::python/hello_sensor.py[tag=control_disconnect] 
+----

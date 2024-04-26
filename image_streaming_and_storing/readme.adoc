@@ -1,0 +1,829 @@
+= Image streaming and storing
+:toclevels: 4
+:source-highlighter: rouge
+:icons: font
+:toc:
+
+== Introduction
+
+This README gives an introduction to the C++ and Python code examples in this folder. The document describes how to stream and store the 2D and 3D data from a supported Visionary streaming device and how to convert the data into 3D point clouds.
+
+Visionary streaming devices support three modes of operation:
+
+Continuous streaming::
+  streaming of data, where the device sends data to the host with the configured frame rate (depending on the device type the frame rate is configured explicitly or implicitly by the exposure time or frame period). This is demonstrated by the <<Continuous streaming>> sample.
+
+Snapshots::
+  where the device sends data to the host only when a snapshot command is received as described in the <<Snapshots>> sample.
+
+Externally triggered::
+  where the device sends data to the host only when a digital input was configured to trigger the device and this input is activated. This is demonstrated by the <<External trigger>> sample.
+
+All three modes are supported by the Visionary API. The following sections describe the streaming modes in detail.
+
+TIP: some devices like the Visionary-S CX will not stream data as long as a user-login is active. So if you do not receive any data, check whether you
+     forgot a `logout` somewhere in your code.
+
+
+The samples store the captured frames on disk. The destination of the data (or better, the path prefix) can be changed using the `-o` command line option.
+By default, the samples store the data in the current working directory.
+
+The metadata are stored in an `.ini` file while the map data (see <<Glossary>>) are stored as link:https://en.wikipedia.org/wiki/Portable_Network_Graphics[PNG] images.
+
+The metadata file contains frame number, frame time, geometry and correction parameters as described below in <<Frame meta data>> and <<Camera data>>
+as well as the names of the available maps and under which file names - without prefix - they were stored.
+
+The files will be created under *<path_prefix>_<frame_number>.ini* for the metadata file and *<path_prefix>_<frame_number>-<mapname>.png* for the map data files.
+
+An example to explain this. If you run the samples on a Visionary-S CX device (that has a *z*, a *rgba* and a *state* map),
+pass `-o /tmp/stereo-` as command line option and the frame number is 42 then:
+
+* the metadata file will be stored as `/tmp/stereo-42.ini`,
+* the z map will be stored as `/tmp/stereo-42-z.png`,
+* the rgba map will be stored as `/tmp/stereo-42-rgba.png` and
+* the state map will be stored as `/tmp/stereo-42-state.png`.
+
+== How to run the samples
+
+[NOTE]
+====
+Remember to adjust the command line arguments like IP address (`-i`) and device type (`-d`) to match your specific device.
+====
+
+**C++**
+
+:relfileprefix: ../
+Either build and run the samples from the top level directory as described in xref:README.adoc#getting-started[Getting Started] or build and run the samples from the sample subdirectory using its CmakeLists.txt file.
+
+**Continuous streaming**
+[source,bash]
+----
+cd build/
+./continuous_streaming -i192.168.1.10 -tVisionary-S -n1
+----
+
+**Snapshots**
+[source,bash]
+----
+cd build/
+./snapshots -i192.168.1.10 -tVisionary-S -n1
+----
+
+**External trigger**
+[source,bash]
+----
+cd build/
+./external_trigger -i192.168.1.10 -n1 -dVisionary-S
+----
+
+**Python**
+
+[NOTE]
+====
+Make sure you followed the prerequisite steps in xref:README.adoc#getting-started[Getting Started]
+====
+
+To run the Python samples, execute the following command from the **top-level directory**:
+
+**Continuous streaming**
+[source,bash]
+----
+python3 -m image_streaming_and_storing.python.continuous_streaming -i192.168.1.10 -n1 -dVisionary-S
+----
+
+**Snapshots**
+[source,bash]
+----
+python3 -m image_streaming_and_storing.python.snapshots -i192.168.1.10 -n1 -dVisionary-S
+----
+
+**External trigger**
+[source,bash]
+----
+python3 -m image_streaming_and_storing.python.external_trigger -i192.168.1.10 -n1 -dVisionary-S
+----
+
+== Continuous streaming
+
+When receiving a continuous stream of data, the host application has to handle the data as fast as possible. If either the receiving application is too slow or the network bandwidth is too low, frames will be automatically dropped by the device. The application can use the frame number included in a received frame to detect dropped frames. The frame number is a 32-bit unsigned integer and is incremented by one for each captured frame. The frame number starts at zero on device restart.
+
+The principal steps to setting up a continuous stream are:
+
+1. Prepare the device for streaming
+2. Create a frame grabber and start the acquisition
+3. Receive frames from the data connection and convert to point cloud
+4. Stop and end the acquisition
+
+You will find the sample code in `cpp/continuous_streaming.cpp` and `python/continuous_streaming.py` respectively.
+
+
+=== Prepare the device for streaming
+
+First we need to initiate a communication using the device control channel to be able to send commands and query information from the device.
+
+**C++**
+[source,c++]
+----
+include::./cpp/continuous_streaming.cpp[tag=open_control_channel]
+----
+
+**Python**
+[source,python]
+----
+include::./python/continuous_streaming.py[tag=open_control_channel]
+----
+
+To be synchronous with the device, we stop the device (it might already send data) and wait a short time until the stop command has been processed by the device and the data stream has been stopped.
+If we omit this step, we might receive partial frame data as soon as we open the data streaming connection.
+
+NOTE: It is ok to stop a device even if it is not streaming. In this case the stop command will be ignored by the device.
+
+**C++**
+[source,c++]
+----
+include::./cpp/continuous_streaming.cpp[tag=precautionary_stop]
+----
+
+**Python**
+[source,python]
+----
+include::./python/continuous_streaming.py[tag=precautionary_stop]
+----
+
+On the communication layer this uses the `PLAYSTOP` method (see xref:HOW_TO_COLA_COMMANDS.adoc#_cola_telegram_listing[telegram listings]) to stop the device. This command works independently of the devices `frontendMode` variable and can be called from any user level.
+
+
+
+=== Create a frame grabber and start the acquisition
+
+Now we can create a frame grabber. It handles the data connection to the device and automatically re-establishes the data connection if it was lost.
+It creates an internal thread that receives frames from the data connection and stores the most recently received frame for the application to retrieve. The frame grabber will automatically drop frames if the application does not receive frames fast enough.
+
+**C++**
+
+[source,c++]
+----
+include::./cpp/continuous_streaming.cpp[tag=create_frame_grabber]
+----
+
+With the frame grabber created we can then start the acquisition of the device.
+
+[source,c++]
+----
+include::./cpp/continuous_streaming.cpp[tag=start_acquisition]
+----
+
+The data handler in the pointer variable `pDataHandler` contains all data received from the frame.
+
+**Python**
+[source,python]
+----
+include::./python/continuous_streaming.py[tag=start_acquisition]
+----
+
+On the communication layer this uses the `PLAYSTART` method to start the device independently of the devices `frontendMode` variable and can be called from any user level.
+
+For details on how to access the frame metadata and the maps see <<Processing the frame data>>.
+
+
+=== Receive frames and convert to point cloud
+
+Since the acquisition has started and the data connection is established, we can now receive frames from the frame grabber. In the example below we receive a limited number of frames, but in a real application we would receive frames until the application is stopped.
+
+**C++**
+[source,c++]
+----
+include::./cpp/continuous_streaming.cpp[tag=capture_loop]
+----
+
+**Python**
+[source, python]
+----
+include::./python/continuous_streaming.py[tag=capture_loop]
+----
+
+=== Stop and end the acquisition
+
+Finally, we need to end the data connection and stop the acquisition on the device. While this is optional, it is recommended to do this to ensure a clean shutdown of the device.
+
+**C++**
+[source,c++]
+----
+include::./cpp/continuous_streaming.cpp[tag=stop_acquisition]
+----
+
+Now we release the frame grabber.
+
+**C++**
+[source,c++]
+----
+include::./cpp/continuous_streaming.cpp[tag=release_frame_grabber]
+----
+
+This will stop the frame grabber thread and close the data connection to the device.
+Since the frame grabber pointer is a smart pointer, the frame grabber will be automatically released when the pointer goes out of scope.
+However, the frame grabber executes a thread join with the frame grabber thread when going out of scope.
+The frame grabber thread polls for termination only after a frame read time out occurs, which can be _up to 5 seconds_. Consequently, the release of the frame grabber is blocked for the aforementioned time. With an explicit release, you can control the exact point in the code where the application is blocked.
+
+Finally, we close the control connection to the device.
+
+**Python**
+[source,python]
+----
+include::./python/continuous_streaming.py[tag=close_streaming]
+----
+
+**C++**
+[source,c++]
+----
+include::./cpp/continuous_streaming.cpp[tag=close_control_channel]
+----
+
+**Python**
+[source,python]
+----
+include::./python/continuous_streaming.py[tag=close_streaming]
+----
+
+This is also optional, since the control connection will be closed automatically when the `VisionaryControl` instance goes out of scope. However, we recommend to close the control connection to make it explicit that the control connection is no longer used.
+
+
+== Snapshots
+
+In snapshot mode, the device will only send data to the host when a snapshot command is received.
+
+IMPORTANT: A new snapshot command will only be processed by the device after the previous snapshot command has been processed. If the application sends snapshot commands faster than the device can process them, the device will drop the snapshot commands.
+
+The principal steps to setting up a snapshot are similar to the steps for continuous streaming:
+
+1. Prepare the device for streaming
+2. Create a frame grabber
+3. Wait until the device is ready to receive the snapshot command
+4. Send a snapshot command to the device and receive the frame from the data connection
+5. End the acquisition
+
+The sample code can be found in `cpp/snapshots.cpp` and `python/snapshots.py`.
+
+
+=== Prepare the device for streaming
+
+The preparation step is identical to the preparation step for continuous streaming.
+
+IMPORTANT: Snapshots can only be acquired when the continuous streaming is stopped.
+           It is allowed to stop a device even if it is not streaming. In this case the stop command will be ignored by the device.
+
+**C++**
+[source,c++]
+----
+include::./cpp/snapshots.cpp[tag=initial_stop]
+----
+
+**Python**
+[source,python]
+----
+include::./python/continuous_streaming.py[tag=precautionary_stop]
+----
+
+=== Create a frame grabber
+
+Not much to do here.
+
+**C++**
+[source,c++]
+----
+include::./cpp/snapshots.cpp[tag=create_frame_grabber]
+----
+
+
+=== Wait until the device is ready
+
+It is essential not to overrun the device with snapshot commands as it will otherwise silently drop the snapshot commands.
+A new snapshot command will be accepted when the frame acquisition cycle has ended.
+
+A short digression:
+
+When a frame is captured, the device internally performs several tasks
+
+  - prepare the image capture, which usually takes only a few microseconds,
+  - start the image exposure (for which the time is configured by the exposure time for Visionary-S CX while it is fixed for Visionary-T Mini CX),
+  - read the data from the sensor,
+  - applying image filter and sending the image data starts now, but
+  - the sensor still waits for the configured frame period (or frame time) to be finished.
+
+So when configuring a frame time that is much larger than the exposure time, even after all data was sent by the device
+it might not be able to process a new snapshot trigger.
+
+To time the snapshots correctly we need to make sure that snapshot commands are sent with time interval of at least one frame period.
+For more stability some additional 1..2ms extra time is recommended.
+
+In the sample we use a parameter `pollPeriodSpan` to wait for the device to be ready to receive the next snapshot command.
+
+**C++**
+[source,c++]
+----
+include::./cpp/snapshots.cpp[tag=avoid_overrun]
+----
+
+**Python**
+[source,python]
+----
+include::./python/snapshots.py[tag=avoid_overrun]
+----
+
+=== Get the snapshots and convert to point cloud
+
+Now we are ready to trigger snapshots and receive the frames through the data connection.
+
+On the communication layer this uses the `PLAYNEXT` method to trigger a snapshot and can be called from any user level.
+
+**C++**
+[source,c++]
+----
+include::./cpp/snapshots.cpp[tag=acquire_snapshots]
+----
+
+**Python**
+[source,python]
+----
+include::./python/snapshots.py[tag=acquire_snapshots]
+----
+
+=== Stop and end the acquisition
+
+Since taking a snapshot leaves the device in a stopped state, we do not need to stop the acquisition. However, we release the frame grabber
+
+**C++**
+[source,c++]
+----
+include::./cpp/snapshots.cpp[tag=release_frame_grabber]
+----
+
+**Python**
+[source,python]
+----
+include::./python/snapshots.py[tag=close_streaming]
+----
+
+and close the control connection to the device.
+
+**C++**
+[source,c++]
+----
+include::./cpp/snapshots.cpp[tag=close_control_channel]
+----
+
+**Python**
+[source,python]
+----
+include::./python/snapshots.py[tag=logout_and_close]
+----
+
+== External trigger
+
+In external trigger mode, the device will only send data to the host when a digital input is activated.
+
+For the external trigger sample you need to be able
+
+  * to generate a short pulse _SENS_IN1_ (only) for a Visionary-S CX or
+  * to generate a rising edge on the configured trigger input for a Visionary-T Mini CX.
+
+[IMPORTANT]
+====
+The Visionary-S CX trigger pulse is level-active, i.e. it captures new frames as long as the trigger input is active. Usually a trigger pulse thus should be shorter than the frame period.
+
+On the Visionary-T Mini CX a trigger pulse is edge-active, i.e. it captures new frames only when the trigger input is activated.
+====
+
+Contrary to the two modes described above, this mode can only be used after the devices' digital inputs (and possibly the *trigger busy* output for the Visionary-T Mini CX) and the frontend mode have been configured accordingly.
+
+The precise configuration differs between Visionary-S CX and the Visionary-T Mini CX, yet the principle sequence is common to both devices:
+
+1. Save the previous configuration.
+2. re-configure the digital input as trigger input (and optionally the trigger busy output)
+3. Configure the frontend mode to enable the external trigger mode.
+4. Create a frame grabber.
+5. Wait for images to be triggered.
+6. Stop the acquisition.
+7. Restore the previous frontend mode and digital input configuration
+
+The sample is quite detailed, not all code may be necessary in your application.
+
+The steps for saving and restoring the previous configuration are a precautionary measure to ensure that the device is in a known state after the sample application has finished. In your application you might want to skip these steps if you configure your device to the desired state right from the start.
+
+The configuration can also be avoided if it is either done once in the Sopas ET UI or a specific configuration script and then stored permanently on the device.
+
+WARNING: Both the digital input configuration and the `frontendMode` variable are a device configuration variables that can be permanently stored on the device.
+  While the external trigger sample is active, please do not call the `WriteEeprom` Sopas method or press _Store permanently_ in the Sopas ET UI.
+  This will overwrite the device configuration and might lead to unexpected behavior of the device after the next power cycle the device will remain in the configured trigger mode.
+
+The sample code can be found in `cpp/external_trigger.cpp` and `python/external_trigger.py`.
+
+
+=== Save the previous configuration
+
+To be able to restore the previous configuration, we first need to query the current configuration. This is done by reading the `frontendMode` variable
+
+**C++**
+[source,c++]
+----
+const visionary::FrontendMode = readFrontendMode(rVisionaryControl);
+----
+
+and the current digital input configuration (before it is changed).
+The enumeration type and thus the code used to read-back and set the pin functions differs slightly between input-only pins of Visionary-S CX (*SENS_IN1* and *SENS_IN2*)
+
+[source,c++]
+----
+const visionary::InputFunctionType fct = readDioFunction(rVisionaryControl, visionary::DInPort::eSENS_IN1);
+----
+
+and bidirectional pins (*INOUT1*, *INOUT2*...)
+
+[source,c++]
+----
+const visionary::IOFunctionType fct = readDioFunction(rVisionaryControl, visionary::DioPort::eINOUT1);
+----
+
+Optionally we can also enable the trigger _busy output_ for the Visionary-T Mini CX, in this example for *INOUT2*. Hence, we read the current state to be able to restore it later.
+
+[source,c++]
+----
+const visionary::IOFunctionType fct = readDioFunction(rVisionaryControl, visionary::DioPort::eINOUT2);
+----
+
+**Python**
+[source,python]
+----
+def read_configuration(device_control: Control, port_names: DioPortNames) -> Configuration:
+    configuration = Configuration()
+    configuration.frontend_mode = device_control.getFrontendModeEnum()
+
+    if port_names.trigger_in_name:
+        configuration.trigger_in_fct = readDioFunction(
+            device_control, port_names.trigger_in_name)
+
+    if port_names.busy_out_name:
+        configuration.busy_out_fct = readDioFunction(
+            device_control, port_names.busy_out_name)
+
+    return configuration
+
+def readDioFunction(device_control, trigger_name):
+    # try whether our name is an input port
+    try:
+        p_var_name = getInFunctionVarName(trigger_name)
+        resp = device_control.readVariable(p_var_name.encode())
+        input_function_type = struct.unpack('>B', resp)[0]
+        return InputFunctionType(input_function_type)
+    # if not, it must be an in/out port
+    except ValueError:
+        p_var_name = getInOutFunctionVarName(trigger_name)
+        resp = device_control.readVariable(p_var_name.encode())
+        io_function_type = struct.unpack('>B', resp)[0]
+        return IOFunctionType(io_function_type)
+----
+
+
+=== Re-configure the digital input as trigger input and set the frontend mode
+
+
+NOTE: The Visionary-S CX has a low-latency hardware trigger that allows the acquisition of images with a minimal delay. This restricts the pin that can be used as trigger input to _SENS_IN1_.
+
+Since the configuration is only available with at least user-level _Authorized client_
+a link:../userlevels_and_passwords/readme.adoc[login/logout sequence] is required.
+
+**C++**
+[source,c++]
+----
+if (!visionaryControl.login(IAuthentication::UserLevel::AUTHORIZED_CLIENT, "CLIENT"))
+{
+  ... error handling ...
+}
+----
+
+**Python**
+[source,python]
+----
+# Login as authorized client
+device_control.login(Control.USERLEVEL_AUTH_CLIENT, 'CLIENT')
+----
+
+Now we can modify the digital input configuration, in our example for *INOUT1* of a Visionary-T Mini CX.
+
+**C++**
+[source,c++]
+----
+writeDioFunction(visionaryControl, visionary::DioPort::eINOUT1, visionary::IOFunctionType::eTrigger);
+----
+
+Further on a Visionary-T Mini CX a pin can be configured as _trigger busy_ output and will be activated as long as a previous trigger
+is still processed. This can be used to make sure a trigger pulse can be processed by the device. In our example we configure *INOUT2* as _trigger busy_ output.
+
+[source,c++]
+----
+writeDioFunction(visionaryControl, visionary::DioPort::eINOUT2, visionary::IOFunctionType::eTriggerBusy);
+----
+
+The external trigger mode needs a specific value for the frontend mode. The required frontend mode differs between Visionary-S CX with the hardware trigger input and the Visionary-T Mini CX with the software based trigger input.
+
+Visionary-S CX requires a special external trigger mode to be used
+
+[source,c++]
+----
+writeFrontendMode(visionaryControl, visionary::FrontendMode::eExternalTrigger);
+----
+
+while the Visionary-T Mini CX frontend simply needs to be stopped.
+
+[source,c++]
+----
+writeFrontendMode(visionaryControl, visionary::FrontendMode::eStopped);
+----
+
+**Python**
+[source,python]
+----
+new_config = Configuration()
+# the expected frontend mode for external trigger operation
+# differs between Visionary-T Mini and the rest.
+if device_type == "Visionary-T Mini":
+    new_config.frontend_mode = FrontendMode.Stopped
+else:
+    new_config.frontend_mode = FrontendMode.ExternalTrigger
+
+new_config.trigger_in_fct = InputFunctionType.Trigger
+new_config.trigger_in_fct_2 = IOFunctionType.Trigger
+new_config.busyOutFct = IOFunctionType.TriggerBusy
+
+print("New config:", new_config)
+
+# write the new configuration
+write_configuration(device_control, port_names, new_config)
+----
+
+
+Finally, we log out from the user level _Authorized client_.
+
+**C++**
+[source,c++]
+----
+if (!visionaryControl.logout())
+{
+  ... error handling ...
+}
+----
+
+**Python**
+[source,python]
+----
+# logout after settings have been done
+device_control.logout()
+----
+
+=== Create a frame grabber and wait for images to be triggered
+
+As described above for the other operation modes, we create a frame grabber instance after a short delay to give the device time to process the configuration changes.
+
+**C++**
+[source,c++]
+----
+include::./cpp/external_trigger.cpp[tag=precautionary_sleep]
+----
+
+**Python**
+[source,python]
+----
+include::./python/external_trigger.py[tag=precautionary_stop]
+----
+
+**C++**
+[source,c++]
+----
+include::./cpp/external_trigger.cpp[tag=create_frame_grabber]
+----
+
+and wait for images to arrive after a trigger signal was received
+
+[source,c++]
+----
+include::./cpp/external_trigger.cpp[tag=wait_for_frame]
+----
+
+**Python**
+[source,python]
+----
+include::./python/external_trigger.py[tag=wait_for_frame]
+----
+
+Note that the frame grabber may time out when the time until an external trigger occurs is too long.
+To avoid that, the samples uses a loop until `getGenNextFrame` returns _true_ indicating that a frame was received.
+
+
+=== End the application and restore everything
+
+Finally, we release the frame grabber
+
+**C++**
+[source,c++]
+----
+include::./cpp/external_trigger.cpp[tag=release_frame_grabber]
+----
+
+and write back the saved configuration as described xref:_save_the_previous_configuration[above]. Finally, we close the control connection to the device.
+
+**Python**
+[source,python]
+----
+include::./python/external_trigger.py[tag=restore_config]
+----
+
+[source,python]
+----
+include::./python/external_trigger.py[tag=logout_and_close]
+----
+
+== Processing the frame data
+
+In the sample we use the generic method to receive a frame from the frame grabber. This works for any supported Visionary device. However, using this pointer we can only receive common data like frame number, frame timestamp or map geometry as shown in <<Frame meta data>> and <<Camera data>>. To access the map data the pointer has to be cast to the correct device dependent type as explained below in <<Map data>>.
+
+
+=== Frame meta data
+
+The frame meta data contains
+
+  * the frame number and
+  * the frame timestamp (in a specific format, see the `VisionaryData` class for details), and for convenience also
+  * the frame timestamp in milliseconds since an unspecified variable epoch (can be device reboot, the last re-initialization/re-configuration or the Unix epoch January 1, 1970, 00:00:00 UTC).
+
+The latter is most useful if you - as we highly recommend - work with relative frame times.
+
+It is accessed like this
+
+**C++**
+[source,c++]
+----
+include::../shared/cpp/framewrite.cpp[tag=frame_meta_data]
+----
+
+**Python**
+[source,python]
+----
+include::../shared/python/framewrite.py[tag=frame_meta_data]
+----
+
+
+=== Camera data
+
+You can access the frame geometry either using
+
+**C++**
+[source,c++]
+----
+include::../shared/cpp/framewrite.cpp[tag=frame_geometry]
+----
+
+**Python**
+[source,python]
+----
+include::../shared/python/framewrite.py[tag=frame_geometry]
+----
+
+which is a shortcut for
+
+**C++**
+[source,c++]
+----
+double int width = rCameraParameters.width;
+double int height = rCameraParameters.height;
+----
+
+**Python**
+[source,python]
+----
+width = data.cameraParams.width
+height = data.cameraParams.height
+----
+
+after obtaining the camera parameter structure
+
+**C++**
+[source,c++]
+----
+include::../shared/cpp/framewrite.cpp[tag=camera_data]
+----
+
+This structure also gives access to the intrinsic camera parameters,
+
+[source,c++]
+----
+include::../shared/cpp/framewrite.cpp[tag=intrinsics]
+----
+
+**Python**
+[source,python]
+----
+include::../shared/python/framewrite.py[tag=intrinsics]
+----
+
+the lens distortion parameters,
+
+**C++**
+[source,c++]
+----
+include::../shared/cpp/framewrite.cpp[tag=lens_distortion]
+----
+
+**Python**
+[source,python]
+----
+include::../shared/python/framewrite.py[tag=lens_distortion]
+----
+
+and the extrinsic camera parameters, or more specifically the transformation from the camera coordinate system to the world coordinate system defined in the device's mounting settings.
+
+**C++**
+[source,c++]
+----
+include::../shared/cpp/framewrite.cpp[tag=cam2world]
+----
+
+**Python**
+[source,python]
+----
+include::../shared/python/framewrite.py[tag=cam2world]
+----
+
+For historical reasons we also have the focal to ray-cross distance value
+
+**C++**
+[source,c++]
+----
+include::../shared/cpp/framewrite.cpp[tag=f2rc]
+----
+
+**Python**
+[source,python]
+----
+include::../shared/python/framewrite.py[tag=f2rc]
+----
+
+which is the distance along the optical axis from the focal point to the reference point, i.e. the origin of the camera coordiante system.
+
+IMPORTANT: In principle, the focal to ray-cross value needs to be subtracted from the z-coordinate of the point obtained *after* the lens-hole transformation and *before* the camera to world transformation to get the correct z-coordinate in the world coordinate system. For Visionary-T Mini CX the focal to ray-cross parameter is set to zero. Instead, it is included in the translation part of the camera-to-world transformation matrix.
+
+
+=== Map data
+
+To access device type specific data like maps, we have to cast the data handler pointer `pDataHandler` to the correct type. This type depends on the visionary device type and is
+
+  * `VisionarySData` for the Visionary-S (device type `VisionaryType::eVisionaryS`), or
+  * `VisionaryTMiniData` for the Visionary-T Mini (device type `VisionaryType::eVisionaryTMini`).
+
+For the Visionary-S CX the map data is accessed like this
+
+**C++**
+[source,c++]
+----
+include::../shared/cpp/framewrite.cpp[tag=visionary_s_maps]
+----
+
+**Python**
+[source,python]
+----
+include::../shared/python/framewrite.py[tag=visionary_s_maps]
+----
+
+and for the Visionary-T Mini CX like this
+
+**C++**
+[source,c++]
+----
+include::../shared/cpp/framewrite.cpp[tag=visionary_t_mini_maps]
+----
+
+**Python**
+[source,python]
+----
+include::../shared/python/framewrite.py[tag=visionary_t_mini_maps]
+----
+
+
+<<<
+== Glossary
+
+Map::
++
+--
+A map is an image that contains one aspect of the acquired data of the sensor for each pixel:
+
+  * a depth map contains the distance data of the sensor (either as radial distance or cartesian z distance)
+  * an intensity map contains the intensity data of the sensor
+  * a color map contains the color data of the sensor
+  * a status map contains a per-pixel bitmask describing whether the pixel is valid (bitmask is 0) or invalid (bitmask is not 0)
+  * a confidence map contains the confidence data of the sensor
+
+Not all maps are supported by all sensors, see the sensor specific documentation for details.
+--
+
+Frame::
+    A frame contains all data from a single acquisition. This includes the depth map, the intensity or color map and the status or confidence map. The frame also contains metadata like the timestamp of the acquisition and the frame number.

@@ -1,0 +1,489 @@
+:toc:
+
+= Visionary devices frontend configuration
+
+This README gives an introduction to the C++ and Python code examples in this folder on how to configure the frontend of a Visionary camera. Last but not least, it is shown how to permanently save a configuration on a device and how to restore the (default) configuration.
+Visionary camera devices offer the capability to configure and optimize the frontend settings for you application. These settings can be broadly classified into two categories:
+
+.General Settings
+- Camera Controls
+- Mounting Settings
+
+.Device Specific Settings
+- Filter Settings
+- Time Synchronisation
+- ...
+
+The standard procedure to modify these frontend settings involves the exchange of CoLa commands with the device. Whether it's reading or writing variables, or invoking a device method, the process generally follows these steps:
+
+. Create a CoLa command.
+. Dispatch the created command to the device.
+. Await the response command from the device.
+. Analyze the received response command.
+
+
+A CoLa command is made up of a `type`, a `name`, and any number of parameters. The name and the parameters that have to be used for a specific command is specified in the respective xref:HOW_TO_COLA_COMMANDS.adoc#_cola_telegram_listing[telegram listing] for the device.
+
+The following sections demonstrate how to configure the frontend settings of Visionary-S CX (see <<Visionary-S specific frontend configuration>>) and the Visionary-T Mini CX
+(see <<Visionary-T Mini specific frontend configuration>>). 
+
+== How to run the samples
+
+[NOTE]
+====
+Remember to adjust the command line arguments like IP address (`-i`) and device type (`-d`) to match your specific device.
+====
+
+**C++**
+
+:relfileprefix: ../
+Either build and run the samples from the top level directory as described in xref:README.adoc#getting-started[Getting Started] or build and run the samples from the sample subdirectory using its CmakeLists.txt file.
+
+**Visionary-S frontend configuration**
+[source,bash]
+----
+cd build/
+./visionary_s_frontend_config -i192.168.1.10
+----
+
+**Visionary-T Mini frontend configuration**
+[source,bash]
+----
+cd build/
+./visionary_t_mini_frontend_config -i192.168.1.10
+----
+
+**Save permanently**
+[source,bash]
+----
+cd build/
+./save_permanently -i192.168.1.10 -dVisionary-S
+----
+
+**Python**
+
+[NOTE]
+====
+Make sure you followed the prerequisite steps in xref:README.adoc#getting-started[Getting Started]
+====
+
+To run the Python samples, execute the following command from the **top-level directory**:
+
+**Visionary-S frontend configuration**
+[source,bash]
+----
+python3 -m image_frontend_configuration.python.visionary_s_frontend_config -i192.168.1.10
+----
+
+**Visionary-T Mini frontend configuration**
+[source,bash]
+----
+python3 -m image_frontend_configuration.python.visionary_t_mini_frontend_config -i192.168.1.10
+----
+
+**Save permanently**
+[source,bash]
+----
+python3 -m image_frontend_configuration.python.save_permanently -i192.168.1.10 -dVisionary-S
+----
+
+== Visionary-S specific frontend configuration
+
+The Visionary-S CX device offers a number of different interfaces to configure the frontend settings. Frontend settings can generally be divided into four main categories:
+
+* **Camera controls**: frontendMode, SingleStep, ...
+* **Mounting settings**: sensorPosition, sensorOrientation, ...
+* **Stereo settings**: acquisitionModeStereo, integrationTimeUs, ...
+* **Filter settings**: enCartFilter, cartFilterBounds, ...
+
+This example demonstrates: 
+
+. How to set the **acquisition mode**.
+. How to set the **region of interest** (ROI).
+. How to use the **auto exposure** functions and how it effects the integration time.
+. How to read and set the **integration time**.
+
+=== 1. Connect to the device and login
+
+The first step is to create a camera control object specifing the right VisionaryType. The VisionaryControl class provides an interface for controlling a Visionary Camera, including managing the connection, logging in and out, and controlling data acquisition.
+
+IMPORTANT: Before configuring any frontend settings, a connection to the device's control channel must be established, and the user must be logged in with the required user level. 
+
+
+**C++**
+[source, c++]
+----
+include::./cpp/visionary_s_frontend_config.cpp[tag=connect_and_login]
+----
+
+**Python**
+[source, python]
+----
+include::./python/visionary_s_frontend_config.py[tag=connect_and_login]
+----
+
+=== 2. Set the acquisition mode
+
+The acquisition mode of the stereo frontend offers three modes:
+
+* *Normal*: This is the standard acquisition mode, suitable for most scenarios.
+* *HDR (High Dynamic Range)*: This mode is ideal when the scene contains both dark and shiny objects. It allows the user to define two different integration times, effectively handling scenes with a high dynamic range.
+* *HQM (High Quality Mode)*: This mode enhances the repeatability of depth values at the cost of a potentially slightly reduced frame rate.
+
+Each mode is designed to optimize the stereo frontend's performance under different conditions. The choice of mode depends on the specific requirements of the scene being captured and the application.
+
+IMPORTANT:  Please note that the variable name for the integration time may change depending on the acquisition mode selected.
+
+image:images/acquisitionMode.PNG[]
+
+Looking at the variable overview for `acquisitionModeStereo` we notice a few things:
+
+- *Write-Access* is granted for *AuthorizedClient, Service*
+- The data is of type `Enum8` with three predefined values
+
+To configure the acquisition mode we simply specify the right int value according from the table, build and send the command.
+
+**C++**
+[source, c++]
+----
+include::./cpp/visionary_s_frontend_config.cpp[tag=set_acquisition_mode]
+----
+
+**Python**
+[source, python]
+----
+include::./python/visionary_s_frontend_config.py[tag=set_acquisition_mode]
+----
+
+=== 3. Configure a ROI (Region of interest)
+
+NOTE: The example uses AcquisitionModeStereo = NORMAL
+
+The Visionary-S CX device has different settings that allow or require to define a ROI for the used algorithm, namely:
+
+* `autoExposureROI`
+* `autoExposureHDRROI`
+* `autoExposureColorROI`
+* `autoWhiteBalanceROI`
+
+Looking at the variable overview for `autoExposureROI` we notice a few things:
+
+- The *Write-Access* is for *AuthorizedClient, Service*
+- The data is a `Struct` of four elements.
+- The four elements are of type UDInt.
+ 
+image:images/autoExposureROI.PNG[]
+
+To configure the Region of Interest (ROI), we need to follow these steps:
+
+Define the four elements:
+
+. left, right, top, and bottom.
+. Sequentially add these elements to the CoLa command. This is achieved by invoking the `parameterUDInt` method for each element.
+. build and send the command.
+
+**C++**
+[source, c++]
+----
+include::./cpp/visionary_s_frontend_config.cpp[tag=set_ROI]
+----
+
+**Python**
+[source, python]
+----
+include::./python/visionary_s_frontend_config.py[tag=set_ROI]
+----
+
+=== 4. Method invokation: auto exposure parameterized
+
+The Visionary-S CX provides several auto exposure algorithms to optimize image capture:
+
+* `Auto Exposure 3D`
+* `Auto Exposure RGB`
+* `Auto White Balance`
+
+These algorithms can be invoked in a parameterized manner using the `TriggerAutoExposureParameterized` method. This allows for flexible and precise control over the image acquisition process.
+
+Looking at the method overview for `TriggerAutoExposureParameterized` we notice a few things:
+
+- *Invocation-Access* is granted for *AuthorizedClient, Service*
+- The method takes two parameters: 
+    . The first is of type `UInt` and specifies the array length
+    . The second is of type `USInt` and specifies the int-enum value for the auto exposure algorithm (see table below)
+
+image:images/triggerautoexposureparameter.PNG[]
+
+To demonstrate how the method can be used we:
+
+. create a for loop with three iterations
+. each iteration we change the auto exposure parameter
+. build the CoLa command by first specifying the parameter length and then adding a second parameter for the actual auto exposure algorithm 
+. send the CoLa command for the method invocation
+
+Additionally we read the variable `integrationTimeUs` **before and after** the method invocation to show how the auto exposure algorithm effects the integration time.
+
+**C++**
+[source, c++]
+----
+include::cpp/visionary_s_frontend_config.cpp[tag=invoke_autoExposure]
+----
+
+**Python**
+[source, python]
+----
+include::python/visionary_s_frontend_config.py[tag=invoke_autoExposure]
+----
+
+=== 5. Read and set Integration Time
+
+The Visionary-S CX distinguishes between four different integration times:
+
+* `Integration Time`
+* `Integration Time HDR`
+* `Integration Time HQM`
+* `Integration Time COLOR STEREO`
+
+Please refer to the documentation for comprehensive explanations of each variable.
+
+Looking at the variable overview for `integrationTimeUs` we notice a few things:
+
+- *Write-Access* is granted for *AuthorizedClient, Service*
+- The datatype is `UDInt`
+- The value range is between *1 and 9300*
+
+image:images/integrationTimeUs.PNG[]
+
+To configure the integration time we:
+
+. choose a new value between 1 and 9300
+. build the CoLa command by invoking the `parameterUDInt` and `build` methods with the defined value
+. send the command
+
+**C++**
+[source, c++]
+----
+include::cpp/visionary_s_frontend_config.cpp[tag=set_integrationTime]
+----
+
+**Python**
+[source, python]
+----
+include::./python/visionary_s_frontend_config.py[tag=set_integrationTime]
+----
+
+To read the new integration time we:
+
+. build the CoLa command specifing the command type `READ_VARIABLE` and the variable name `integrationTimeUs`
+. build and send the command
+. parse the response
+
+**C++**
+[source, c++]
+----
+include::cpp/visionary_s_frontend_config.cpp[tag=read_integrationTime]
+----
+
+**Python**
+[source, python]
+----
+include::./python/visionary_s_frontend_config.py[tag=read_integrationTime]
+----
+
+=== Final step: Logout and disconnect
+
+Finally we logout from the device and disconnect the control connection.
+
+**C++**
+[source, c++]
+----
+include::cpp/visionary_s_frontend_config.cpp[tag=logout_and_disconnect]
+----
+
+**Python**
+[source, python]
+----
+include::./python/visionary_s_frontend_config.py[tag=logout_and_disconnect]
+----
+
+
+== Visionary-T Mini specific frontend configuration
+
+The Visionary-T Mini CX device offers a number of different interfaces to configure the frontend settings. Frontend settings can generally be divided into four main categories:
+
+* **Camera controls**: frontendMode, SingleStep, ...
+* **Mounting settings**: sensorPosition, sensorOrientation, ...
+* **Filter settings**: enDepthMask, enableDistanceFilter, ...
+* **Time synchronisation**: timeSynchronizationEnabled, ...
+
+This example demonstrates: 
+
+. How to configure the Binning Option.
+. How to read and set the Frame Period.
+
+=== 1. Connect and login 
+
+IMPORTANT: Before configuring any device settings, ensure to complete <<1. Connect to the device and login>>. Typically, modifying device variables necessitates a login with the appropriate user level.
+
+=== 2. Configure the Binning Option
+
+Use `BinningOption` to combine a cluster of adjacent pixels on the cameras' imager.
+Pixel binning improves the robustness of the data and increases the repeatability of the measurement values.
+The selected binning option reduces the image resolution by the respective factor and thus reduces the bandwidth usage.
+
+* `Off` disables pixel binning.
+* `2x2` combines four image pixels into
+one.
+* `4x4` combines 16 image pixels into one.
+
+NOTE: The possible binning options depend on the defined region of interest (ROI). The ROI width must be divisible by eight for 2x2 and by 16 for 4x4.
+The ROI height must be divisible by two for 2x2 and by four for 4x4.
+
+Looking at the variable overview for `binningOption` we notice a few things:
+
+- The *Write-Access* is for *AuthorizedClient, Service*
+- The datatype is `Eum8` with three predefined values
+    * 0 = NONE
+    * 1 = TWO_BY_TWO
+    * 2 = FOUR_BY_FOUR
+
+The enum for `BinningOption` has a class definition with the same name in the file usertypes.h. This simplfies reading and interpreting the values.
+
+NOTE: Different usertypes are defined in usertypes.h. If you’re in need of a usertype which currently has no implementation, feel free to contribute to this repo.
+
+image:images/binningOption.PNG[]
+
+To configure the binning option we:
+
+. create a new binning option variable
+. build the CoLa command by invoking the `parameterUSInt` and `build` methods with the defined value
+. send the command
+
+**C++**
+[source, c++]
+----
+include::cpp/visionary_t_mini_frontend_config.cpp[tag=set_binningOption]
+----
+
+**Python**
+[source, python]
+----
+include::python/visionary_t_mini_frontend_config.py[tag=set_binningOption]
+----
+
+To read the newly set binning option we:
+
+. build the CoLa command specifing the command type `READ_VARIABLE` and the variable name `binningOption`
+. build and send the command
+. parse the response
+
+**C++**
+[source, c++]
+----
+include::cpp/visionary_t_mini_frontend_config.cpp[tag=read_binningOption]
+----
+
+**Python**
+[source, python]
+----
+include::python/visionary_t_mini_frontend_config.py[tag=read_binningOption]
+----
+
+=== 3. Configure the Frame Period
+
+NOTE: The frame period defines the time interval in which the next image is provided. This results in the frame rate. The image acquisition time is not affected by this and always remains below 10ms.
+Reduce the frame rate to reduce bandwidth usage and system temperature.
+Increase the frame rate for time-critical and dynamic applications and ensure sufficient heat dissipation.
+
+Looking at the variable overview for `framePeriodUs` we notice a few things:
+
+- *Write-Access* is granted for *AuthorizedClient, Service*
+- The datatype is `UDInt`
+- The value range is between *33333..1000000*
+
+image:images/framePeriodUs.PNG[]
+
+To configure the frame period we:
+
+. choose a new value between 33333 and 1000000
+. build the CoLa command by invoking the `parameterUDInt` and `build` methods with the defined value
+. send the command
+
+**C++**
+[source, c++]
+----
+include::cpp/visionary_t_mini_frontend_config.cpp[tag=set_framePeriod]
+----
+
+**Python**
+[source, python]
+----
+include::python/visionary_t_mini_frontend_config.py[tag=set_framePeriodUs]
+----
+
+To read the new frame period:
+
+. build the CoLa command specifing the command type `READ_VARIABLE` and the variable name `framePeriodUs`
+. build and send the command
+. parse the response
+
+**C++**
+[source, c++]
+----
+include::cpp/visionary_t_mini_frontend_config.cpp[tag=read_framePeriod]
+----
+
+**Python**
+[source, python]
+----
+include::python/visionary_t_mini_frontend_config.py[tag=read_framePeriodUs]
+----
+
+=== Final step: Logout and disconnect
+See <<Final step: Logout and disconnect>>
+
+== Permanently storing the device configuration
+
+In the previous chapter you learned how to set device specific parameters. Changing parameters in this way will only save them until the next power cycle. If you want to permanently store parameter values on the device i.e. you need to call the `writeEeprom` method.
+
+=== Save permanently: The writeEeprom method
+
+The writeEeprom method writes all parameters to the device memory. 
+In Python you can simply call the `writeEeprom` method of the `Control`-class.
+In C++ you can use the provided `writeEeprom` function. Under the hood both are creating a CoLa command which invokes the method `mEEwriteall`.
+
+image:images/writeEeprom.PNG[]
+
+**Python**
+[source, python]
+----
+include::python/save_permanently.py[tag=save_permanently_integration_time]
+----
+
+**C++**
+[source, c++]
+----
+include::cpp/save_permanently.cpp[tag=writeEeprom]
+----
+
+=== Restore default values
+
+To restore changed parameters you have two options:
+
+. Set the variable to the previous value and call `writeEeprom()` 
+. Or call the `loadFactoryDefaults()` method and call `writeEeprom()`
+
+image:images/loadFactoryDefaults.PNG[]
+
+NOTE: Calling `loadFactoryDefaults()` will reset *ALL* parameters to their default values. Unless you explicitly want to do this we recommend to only restore the specific parameter in the same way you changed it.
+
+**Python**
+[source, python]
+----
+include::python/save_permanently.py[tag=restore_default_integration_time]
+----
+
+**C++**
+[source, c++]
+----
+include::cpp/save_permanently.cpp[tag=restore_default]
+----

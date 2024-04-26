@@ -1,0 +1,25 @@
+= SICK Visionary samples changelog
+
+This document provides a summary of all notable changes for the Visionary samples collection.
+For a detailed view of what was changed, please refer to the repository's commit history.
+
+
+== Unreleased
+
+=== Changed
+
+=== Fixed
+
+=== Added
+
+=== Known Issues
+
+=== Compatibility
+
+=== Supported devices
+
+* Visionary-T Mini CX versions 1.x, 2.x
+* Visionary-T CX, AG, (DT only streaming functionality)
+* Visionary-S CX
+
+

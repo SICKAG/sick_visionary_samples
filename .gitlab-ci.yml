@@ -1,0 +1,19 @@
+default:
+  tags:
+    - type_docker
+    - os_linux
+  image:
+    name: div08-docker.deagxartifactory.sickcn.net/ubu2004_64_vide_developer:1.7.1
+
+stages:
+- build
+
+build:
+  variables:
+    GIT_SUBMODULE_STRATEGY: normal
+    GIT_SUBMODULE_DEPTH: 1
+  stage: build
+  timeout: 1h
+  script:
+    - cmake -B build -DCMAKE_BUILD_TYPE=Release
+    - cmake --build build

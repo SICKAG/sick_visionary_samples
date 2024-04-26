@@ -1,0 +1,6 @@
+[submodule "base/cpp"]
+	path = base/cpp
+	url = ../sick_visionary_cpp_base.git
+[submodule "base/python"]
+	path = base/python
+	url = ../sick_visionary_python_base.git

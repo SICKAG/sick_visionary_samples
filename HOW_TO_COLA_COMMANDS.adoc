@@ -1,0 +1,388 @@
+= How to work with CoLa Commands
+:toclevels: 4
+:source-highlighter: rouge
+:icons: font
+:toc:
+
+== CoLa Telegram Listing
+
+The Visionary-S and Visionary-T Mini cameras use the CoLa protocol to send and receive control or streaming commands aka telegrams. 
+The available CoLa commands for the control channel of each device can be found in:
+
+- link:https://cdn.sick.com/media/docs/4/44/844/telegram_listing_visionary_s_cx_telegram_listing_en_im0106844.pdf[Visionary-S Telegram Listing]
+- link:https://cdn.sick.com/media/docs/7/47/847/telegram_listing_visionary_t_mini_cx_telegram_listing_en_im0106847.pdf[Visionary-T Mini Telegram Listing]
+
+The following section explains how to read and write CoLa commands/responses in `Python` and `C++`.
+Most CoLa commands follow a simple structure and their implementation is therefore easy. 
+In addition to the simple datatypes like int or float, there are more complex datatypes which we`ll explain in <<Special Cases>>.
+
+== Prerequisites
+
+Before you can read and write a CoLa command you need to make sure you know:
+
+. the correct name of the variable/method
+. the data/return type of the variable/method
+
+=== Communication Name 
+
+=== Datatypes
+
+[cols="5*", options="header"]
+|===
+| DataType | Description | Range | Python Struct Format Character | C++ Read/Write Methods
+
+| Bool | boolean | True(1), False(0) | `?` | `readBool()`/`parameterBool()` 
+| USInt | unsigned short (8 bit) | 0..255 | `B` | `readUSInt()`/`parameterUSInt()`
+| UInt | unsigned int (16 bit) | 0..65535 | `H` | `readUInt()`/`parameterUInt()`
+| UDInt | unsigned double int (32 bit) | 0..4294967295 | `I` | `readUDInt()`/`parameterUDInt()`
+| ULInt | unsigned long int (64 bit) | 0..18446744073709551616 | `Q` | `Not implemented`
+| SInt | signed short (8 bit) | -128..127 | `b` | `readSInt()`/`parameterSInt()`
+| Int | signed int (16 bit) | -32768..32767 | `h` | `readInt()`/`parameterInt()`
+| DInt | signed double int (32 bit) | -2147483648..2147483647 | `i` | `readDInt()`/`parameterDInt()`
+| LInt | signed long int (64 bit) | -9223372036854775808..9223372036854775807 | `q` | `Not implemented`
+| Real | IEEE-754 single precision (32 bit) (float) | See specification in IEEE-754 | `f` | `readReal()`/`parameterReal()`
+| LReal | IEEE-754 single precision (64 bit) (double) | See specification in IEEE-754 | `d` | `readLReal()`/`parameterLReal()`
+| Enum8 | short enumeration (8 bit) | certain values defined in a list of choices (0-255) | `B` | `Not implemented`
+| Enum16 | short enumeration (16 bit) | certain values defined in a list of choices (0-65535) | `H` | `Not implemented`
+| String | array of visible characters (array of 8 bit) | a character = an USInt with values between 0x20..0xFF | `s` | `readFixedString(len)`
+| FlexString | array of visible characters with preceeding current length (UInt length) (array of 8 bit) | See description of String and FlexArray | `p` | `readFlexString()`/`parameterFlexString()`
+| Byte | bitset definition (8 bit). Detailed specification of bits | UInt1..UInt16 = UInt (1..16 bit) Int1..Int16 = Int (1..16 bit) Enum1..Enum16 = Enum16 (1..16 bit) Bool = Bool (1 bit) value is transferred as an array of USInt. See "XByte Serialisation" document for further details on bit ordering | `s` | `Not implemented`
+|===
+
+== Example: Read CoLa Command
+
+We'll explain how to read a CoLa command with the variable `framePeriodUs`.
+
+Looking at the variable overview for `framePeriodUs` we notice a few things:
+
+- There is no communication name, only a variable name
+- *Write-Access* is granted for *AuthorizedClient, Service*
+- The datatype is *UDInt*
+- The value range is between *33333..1000000*
+
+image:image_frontend_configuration/images/framePeriodUs.PNG[]
+
+=== Read framePeriodUs in Python
+
+To read the variable we use the `readVariable()` method of the `Control-Class` specifing the correct variable name. The `Control-Class` provides you with the necessary read and write functions which simplyfies reading and writing variables to one function call and a `struct.pack/struct.unpack` call. 
+
+**1.** First we call `readVariable()` entering the variable name as a string in binary format. Notice the `b` before the string of the variable name. The response will be in binary format. 
+[source, python]
+----
+visionary_control = Control(ip_address, CoLa_protocol, control_port)
+response = visionary_control.readVariable(b'framePeriodUs')
+----
+
+**2.** To get a human readable variable we call `struct.unpack()` specifying the correct struct format character listed in <<Datatypes>>. For `UDInt` the format character is `I`. `Struct.unpack` will return a tuple, To receive the variable we get the entry at the first index.
+
+[source, python]
+----
+framePeriodUs = struct.unpack('>I', response)[0]
+----
+
+=== Read framePeriodUs in C++
+
+To read the variable we make use of the link:base/cpp/src/CoLaParameterReader.h[ ControlParameterReader Class]. 
+This class provides read methods (see Step 3) for the various datatypes. See the last column in <<Datatypes>>. 
+
+[NOTE]
+====
+Note that we are using the namespace visionary in most of our C++ samples and that visionaryControl is an instance of link:base/cpp/src/VisionaryControl.h[VisionaryControl].
+[source, c++]
+----
+using namespace visionary;
+VisionaryControl visionaryControl(visionaryType);
+----
+====
+
+**1.** Build the CoLa command specifing the command type READ_VARIABLE and the variable name `framePeriodUs`
+[source, c++]
+----
+CoLaCommand getFramePeriodUsCommand = CoLaParameterWriter(CoLaCommandType::READ_VARIABLE, "framePeriodUs").build();
+----
+
+**2.** After building the command, call `sendCommand` of the VisionaryControl instance.
+
+[source, c++]
+----
+CoLaCommand getFramePeriodUsResponse = visionaryControl.sendCommand(getFramePeriodUsCommand);
+----
+
+**3.** The final step is parsing the response with the suitable read-method. 
+In this case `readUDInt()`.
+[source, c++]
+----
+std::uint32_t FramePeriodUs = CoLaParameterReader(getFramePeriodUsResponse).readUDInt();
+----
+
+== Example: Write CoLa Commands 
+
+We'll explain how to write a CoLa command with the varibale `integrationTimeUs`.
+
+Looking at the variable overview for `integrationTimeUs` we notice a few things:
+
+- There is no communication name, only a variable name
+- *Write-Access* is granted for *AuthorizedClient, Service*
+- The datatype is *UDInt*
+- The value range is between *33333..1000000*
+
+image:image_frontend_configuration/images/integrationTimeUs.PNG[]
+
+=== Write integrationTimeUs in Python
+
+To write the variable we use the `writeVariable()` method of the `Control-Class` specifing the correct variable name. The `Control-Class` provides you with the necessary read and write functions which simplifies reading and writing variables to one function call and a `struct.pack/struct.unpack` call. 
+
+**1.** First we call `writeVariable()` with two parameters. First we enter the variable name as a string in binary format. Notice the `b` before the string of the variable name. 
+The second parameter is entered in big-endian binary format using struct.pack.
+`>` specifies big-endian and `I` specifies the format character for UDInt (see <<Datatypes>>).  
+
+[source, python]
+----
+visionary_control = Control(ip_address, CoLa_protocol, control_port)
+visionary_control.writeVariable(b'integrationTimeUs', struct.pack('>I', 3000))
+----
+
+=== Write integrationTimeUs in C++
+
+To write the variable we make use of the link:base/cpp/src/CoLaParameterWriter.h[ ControlParameterWriter Class]. 
+This class provides read methods (see Step 3) for the various datatypes. See the last column in <<Datatypes>>. 
+
+[NOTE]
+====
+Note that we are using the namespace visionary in most of our C++ samples and that visionaryControl is an instance of link:base/cpp/src/VisionaryControl.h[VisionaryControl].
+[source, c++]
+----
+using namespace visionary;
+VisionaryControl visionaryControl(visionaryType);
+----
+====
+
+**1.** Create the CoLa command specifing the command type WRITE_VARIABLE and the variable name `integrationTimeUs`. Add the value to the `CoLaCommand` using the suitable `parameterUDInt` as specified in <<Datatypes>>. 
+Build the command using `build()`.
+[source, c++]
+----
+CoLaCommand setIntegrationTimeUsCommand =
+    CoLaParameterWriter(CoLaCommandType::WRITE_VARIABLE, "integrationTimeUs").parameterUDInt(3000).build();
+----
+
+**2.** After building the command, call `sendCommand` of the VisionaryControl instance.
+
+[source, c++]
+----
+CoLaCommand setIntegrationTimeUsResponse = visionaryControl.sendCommand(setIntegrationTimeUsCommand);
+----
+
+== Special Cases
+
+There are three complex datatypes namely:
+
+. Array
+. Flex Array
+. Struct
+
+=== Reading an Array (Includes reading a struct)
+
+An Array is a repetition of a type. The length of the array is defined with each Array. The types can be of a BasicType, a Struct or again an Array (n- dimensional).
+
+A structure is a sequence of further types. These types can be of a BasicType, Structs again or an Array.
+
+We'll explain how to read an Array based on the variable `EMsgInfo`, which contains all info log messages in the device.
+
+image:diagnosing_devices/images/overviewEMsgInfo.png[]
+
+There are a few important things to note here:
+
+- The *Communication Name* does not match the variable name.
+- The *Write-Access* is *No!* which means the variable can only be read.
+- The data is an `Array` of `ErrStructType` elements.
+- The array always contains **25 items**.
+
+==== Python
+
+**1.** First we call `readVariable()` entering the communication name of the variable as a string in binary format. Notice the `b` before the string of the variable's communication name. The response will be in binary format. 
+[source, python]
+----
+visionary_control = Control(ip_address, CoLa_protocol, control_port)
+rx = visionary_control.readVariable(b"MSInfo")
+----
+
+**2.** The next step is parsing the response with the suitable read-methods.
+For this it is required to lookup the `ErrStructType` definition in the respective <<CoLa Telegram Listing,telegram listing>>, which looks like this:
+
+image:diagnosing_devices/images/definitionErrStructType.png[]
+
+As seen above this struct contains seven different values with different types. Also notice that the `FirstTime` and `LastTime` members are of type `ErrTimeType`, this struct can also be found in the document:
+
+image:diagnosing_devices/images/definitionErrTimeType.png[]
+
+Together with the knowledge that the array always contains 25 items of `ErrStructType` and each `ErrStructType` contains ErrorId, ErrorState, ... it is now possible to parse the response command.
+
+Since the response contains 25 items, we loop over the response 25 times while parsing one item after another with the correct struct.unpack format character specified in <<Datatypes>>.
+
+[source, python]
+----
+# define the mapping from ErrorState to string
+error_state_mapping = {0: 'PERMANENT', 1: 'ACTIVE',
+                        2: 'INACTIVE', 3: 'CLEAR', 4: 'UNKNOWN'}
+msg = []
+addr = 0
+for i in range(0, 25):
+    ErrorId, = struct.unpack('>I', rx[addr:addr + 4])
+    addr += 4
+    ErrorState, = struct.unpack('>I', rx[addr:addr + 4])
+    addr += 4
+    FirstTime_PwrOnCnt, = struct.unpack('>H', rx[addr:addr + 2])
+    addr += 2
+    FirstTime_OpSecs = convert_seconds_to_time(
+        struct.unpack('>I', rx[addr:addr + 4])[0])
+    addr += 4
+    FirstTime_TimeOccur = convert_seconds_to_time(
+        struct.unpack('>I', rx[addr:addr + 4])[0])
+    addr += 4
+    LastTime_PwrOnCnt, = struct.unpack('>H', rx[addr:addr + 2])
+    addr += 2
+    LastTime_OpSecs = convert_seconds_to_time(
+        struct.unpack('>I', rx[addr:addr + 4])[0])
+    addr += 4
+    LastTime_TimeOccur = convert_seconds_to_time(
+        struct.unpack('>I', rx[addr:addr + 4])[0])
+    addr += 4
+    NumberOccurance, = struct.unpack('>H', rx[addr:addr + 2])
+    addr += 2
+    ErrReserved, = struct.unpack('>H', rx[addr:addr + 2])
+    addr += 2
+    flxStrLen, = struct.unpack('>H', rx[addr:addr + 2])
+    addr += 2
+    ExtInfo = rx[addr:addr + flxStrLen]
+    addr += flxStrLen
+    entry = {
+        "ErrorId": ErrorId,
+        "ErrorState": error_state_mapping.get(ErrorState, 'UNKNOWN'),
+        "FirstTime_PwrOnCnt": FirstTime_PwrOnCnt,
+        "FirstTime_OpSecs": FirstTime_OpSecs,
+        "FirstTime_TimeOccur": FirstTime_TimeOccur,
+        "LastTime_PwrOnCnt": LastTime_PwrOnCnt,
+        "LastTime_OpSecs": LastTime_OpSecs,
+        "LastTime_TimeOccur": LastTime_TimeOccur,
+        "NumberOccurance": NumberOccurance,
+        "ErrReserved": ErrReserved,
+        "ExtInfo": ExtInfo
+    }
+    if ErrorState > 0:
+        msg.append(entry)
+----
+
+==== C++
+
+**1.** Build the CoLa command specifing the command type READ_VARIABLE and the variable's communication name `MSinfo`
+[source, c++]
+----
+CoLaCommand getMessagesCommand = CoLaParameterWriter(CoLaCommandType::READ_VARIABLE, "MSinfo").build();
+----
+
+**2.** After building the command, call `sendCommand` of the VisionaryControl instance.
+
+[source, c++]
+----
+CoLaCommand messagesResponse   = visionaryControl.sendCommand(getMessagesCommand);
+----
+
+**3.** The final step is parsing the response with the suitable read-methods.
+
+For this it is required to lookup the `ErrStructType` definition in the repsective <<CoLa Telegram Listing,telegram listing>> document, which looks like this:
+
+image:diagnosing_devices/images/definitionErrStructType.png[]
+
+As seen above this struct contains seven different values with different types. Also notice that the `FirstTime` and `LastTime` members are of type `ErrTimeType`, this struct can also be found in the document:
+
+image:diagnosing_devices/images/definitionErrTimeType.png[]
+
+Together with the knowledge that the array always contains 25 items of `ErrStructType` and each `ErrStructType` contains ErrorId, ErrorState, ... it is now possible to parse the response command.
+
+Since the response contains 25 items, we loop over the response 25 times while parsing one item after another with the correct read methods of the `CoLaParameterReader`specified in <<Datatypes>>.
+
+[source, c++]
+----
+CoLaParameterReader reader(messagesResponse);
+  for (int i = 0; i < 25; i++) // Read 25 items
+  {
+    std::uint32_t errorId    = reader.readUDInt();
+    std::uint32_t errorState = reader.readUDInt();
+
+    // Read ErrTimeType struct members for FirstTime
+    std::uint16_t firstTime_PwrOnCount = reader.readUInt();
+    std::uint32_t firstTime_OpSecs     = reader.readUDInt();
+    std::uint32_t firstTime_TimeOccur  = reader.readUDInt();
+
+    // Read ErrTimeType struct members for LastTime
+    std::uint16_t lastTime_PwrOnCount = reader.readUInt();
+    std::uint32_t lastTime_OpSecs     = reader.readUDInt();
+    std::uint32_t lastTime_TimeOccur  = reader.readUDInt();
+
+    std::uint16_t numberOccurrences = reader.readUInt();
+    std::uint16_t errReserved       = reader.readUInt();
+    std::string   extInfo           = reader.readFlexString();
+  }
+----
+
+=== Reading a FlexArray (Invoke method with FlexArray)
+
+NOTE: You can easily differentiate between an `Array` and a `FlexArray` by looking at the length. 
+If the length is a single digit like 16, then it's a normal Array.
+If the length is a range like 0..16, then it's a FlexArray.
+
+A FlexArray is a repetition of a type with a variable length. The maximum length of the array is defined with each FlexArray. The current length of the FlexArray is transferred as a UInt preceeding the Array itself. The types can be of a BasicType, a Struct or again an Array (n- dimensional).
+
+We'll explain how to invoke a method which takes a FlexArray parameter as input based on the function `TriggerAutoExposureParameterized`.
+
+image:image_frontend_configuration/images/triggerautoexposureparameter.PNG[]
+
+Looking at the method overview for `TriggerAutoExposureParameterized` we notice a few things:
+
+- *Invocation-Access* is granted for *AuthorizedClient, Service*
+- The method takes two parameters: 
+    . The first is of type UInt and specifies the **array length**
+    . The second is of type `USInt` and specifies the **int-enum value** for the auto exposure algorithm (see table below)
+
+==== Python
+
+To invoke `TriggerAutoExposureParameterized` we call `invokeMethod` with the argument `b"TriggerAutoExposureParameterized"` and
+`struct.pack(">HB", 1, auto_type)`.
+
+`>HB`:
+. `>` specifies big endian
+. `H` is the format character for UInt for the parameter length
+. `B` is the format character for USInt for the parameter Enum8
+
+[source, python]
+----
+visionary_control = Control(ip_address, CoLa_protocol, control_port)
+for i in range(3):
+    auto_type = i
+    auto_exposure_response = visionary_control.invokeMethod(b"TriggerAutoExposureParameterized", struct.pack(">HB", 1, auto_type))
+----
+
+==== C++
+
+**1.** Build the CoLa command specifing the command type `METHOD_INVOCATION` 
+and the variable name `TriggerAutoExposureParameterized`.
+With each method invocation you need to specify two parameters, the length and the auto exposure enum. 
+[source, c++]
+----
+ for (uint8_t autoType = 0; autoType < 3;
+        autoType++) // 0 = Auto Exposure 3D, 1 = Auto Exposure RGB, 2 = Auto White Balance
+  {
+    CoLaCommand invokeAutoExposureCommand =
+        CoLaParameterWriter(CoLaCommandType::METHOD_INVOCATION, "TriggerAutoExposureParameterized")
+            .parameterUInt(1)
+            .parameterUSInt(autoType)
+            .build();
+  }
+----
+
+**2.** After building the command, call `sendCommand` of the VisionaryControl instance.
+
+[source, c++]
+----
+    CoLaCommand autoExposureResponse = visionaryControl.sendCommand(invokeAutoExposureCommand);
+----

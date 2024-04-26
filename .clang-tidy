@@ -1,0 +1,89 @@
+#########################################################################
+## Comments on disabled checks
+#########################################################################
+#-cppcoreguidelines-avoid-c-arrays
+# we still use c-arrays a lot, if fixed we can enable it again
+#
+#-cppcoreguidelines-avoid-magic-numbers
+# Very restrictive - ANY non-const number asignment will be a warning
+#
+#-cppcoreguidelines-pro-bounds-pointer-arithmetic,
+# we use ptr arithmetic on purpose
+#
+#-cppcoreguidelines-pro-type-vararg,
+# due to bug https://reviews.llvm.org/D101259
+#
+#-cppcoreguidelines-pro-bounds-array-to-pointer-decay
+# even use of __FUNCTION__ would be a warning
+#########################################################################
+
+Checks: >
+  clang-diagnostic-*,
+  clang-analyzer-*,
+  cppcoreguidelines-*,
+  -cppcoreguidelines-avoid-c-arrays,
+  -cppcoreguidelines-avoid-magic-numbers,
+  -cppcoreguidelines-pro-type-vararg,
+  -cppcoreguidelines-pro-bounds-pointer-arithmetic,
+  -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
+  performance-*,
+  portability-*,
+  readability-identifier-naming
+
+WarningsAsErrors: 'false'
+
+CheckOptions:
+  - { key: readability-identifier-naming.ClassCase, value: CamelCase }
+  - { key: readability-identifier-naming.StructCase, value: CamelCase }
+  - { key: readability-identifier-naming.EnumCase, value: CamelCase }
+  - { key: readability-identifier-naming.TypedefCase, value: CamelCase }
+  - { key: readability-identifier-naming.TypedefAliasCase, value: CamelCase }
+
+  - { key: readability-identifier-naming.TemplateParameterCase, value: CamelCase }
+  - { key: readability-identifier-naming.TemplateParameterPrefix, value: T }
+  - { key: readability-identifier-naming.TemplateParameterIgnoredRegexp, value: '[A-Z]' }
+
+  - { key: readability-identifier-naming.FunctionCase, value: camelBack }
+  - { key: readability-identifier-naming.VariableCase, value: camelBack }
+  - { key: readability-identifier-naming.ParameterCase, value: camelBack }
+
+  - { key: readability-identifier-naming.ConstantPointerParameterCase, value: CamelCase }
+  - { key: readability-identifier-naming.ConstantPointerParameterPrefix, value: p }
+  - { key: readability-identifier-naming.ConstantPointerParameterIgnoredRegexp, value: p }
+  - { key: readability-identifier-naming.GlobalConstantPointerCase, value: CamelCase }
+  - { key: readability-identifier-naming.GlobalConstantPointerPrefix, value: g_kp }
+  - { key: readability-identifier-naming.GlobalPointerCase, value: CamelCase }
+  - { key: readability-identifier-naming.GlobalPointerPrefix, value: g_p }
+  - { key: readability-identifier-naming.LocalConstantPointerCase, value: CamelCase }
+  - { key: readability-identifier-naming.LocalConstantPointerPrefix, value: kp }
+  - { key: readability-identifier-naming.LocalConstantPointerIgnoredRegexp, value: 'p([A-Z0-9][a-z]*)*' }
+  - { key: readability-identifier-naming.LocalPointerCase, value: CamelCase }
+  - { key: readability-identifier-naming.LocalPointerPrefix, value: p }
+  - { key: readability-identifier-naming.LocalPointerIgnoredRegexp, value: p }
+  - { key: readability-identifier-naming.PointerParameterCase, value: CamelCase }
+  - { key: readability-identifier-naming.PointerParameterPrefix, value: p }
+  - { key: readability-identifier-naming.PointerParameterIgnoredRegexp, value: p }
+
+  - { key: readability-identifier-naming.MemberCase, value: camelBack }
+  - { key: readability-identifier-naming.PrivateMemberPrefix, value: m_ }
+  - { key: readability-identifier-naming.PrivateMemberIgnoredRegexp, value: m }
+
+  - { key: readability-identifier-naming.GlobalVariablePrefix, value: g_ }
+
+  - { key: readability-identifier-naming.ClassConstantCase, value: CamelCase }
+  - { key: readability-identifier-naming.ClassConstantPrefix, value: 'k' }
+  - { key: readability-identifier-naming.ConstantParameterCase, value: camelBack }
+  - { key: readability-identifier-naming.ConstantParameterPrefix, value: '' }
+  - { key: readability-identifier-naming.GlobalConstantCase, value: CamelCase }
+  - { key: readability-identifier-naming.GlobalConstantPrefix, value: k }
+  - { key: readability-identifier-naming.LocalConstantCase, value: camelBack }
+  - { key: readability-identifier-naming.LocalConstantPrefix, value: '' }
+
+  - { key: readability-identifier-naming.EnumConstantCase, value: CamelCase }
+  - { key: readability-identifier-naming.EnumConstantPrefix, value: e }
+  - { key: readability-identifier-naming.ScopedEnumConstantCase, value: CamelCase }
+  - { key: readability-identifier-naming.ScopedEnumConstantPrefix, value: e }
+
+  - { key: readability-identifier-naming.NamespaceCase, value: lower_case }
+
+  - { key: readability-identifier-naming.MacroDefinitionCase, value: UPPER_CASE }
