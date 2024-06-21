@@ -130,7 +130,7 @@ static ExitCode runDemo(visionary::VisionaryType visionaryType, const std::strin
                  originalWarnMargin);
   }
 
-  //tag::logout_and_disconnect[]
+  // tag::logout_and_disconnect[]
   visionaryControl.logout();
   visionaryControl.close();
   // end::logout_and_disconnect[]

@@ -124,13 +124,27 @@ First we need to initiate a communication using the device control channel to be
 **C++**
 [source,c++]
 ----
-include::./cpp/continuous_streaming.cpp[tag=open_control_channel]
+using namespace visionary;
+
+  std::shared_ptr<VisionaryControl> visionaryControl = std::make_shared<VisionaryControl>(visionaryType);
+
+  // Connect to devices control channel
+  if (!visionaryControl->open(ipAddress))
+  {
+    std::fprintf(stderr, "Failed to open control connection to device.\n");
+
+    return ExitCode::eControlCommunicationError;
+  }
+  
 ----
 
 **Python**
 [source,python]
 ----
-include::./python/continuous_streaming.py[tag=open_control_channel]
+device_control = Control(ip_address, cola_protocol, control_port)
+    # Connect to devices control channel
+    device_control.open()
+    
 ----
 
 To be synchronous with the device, we stop the device (it might already send data) and wait a short time until the stop command has been processed by the device and the data stream has been stopped.
@@ -141,13 +155,21 @@ NOTE: It is ok to stop a device even if it is not streaming. In this case the st
 **C++**
 [source,c++]
 ----
-include::./cpp/continuous_streaming.cpp[tag=precautionary_stop]
+if (!visionaryControl->stopAcquisition())
+  {
+    std::fprintf(stderr, "Failed to stop acquisition.\n");
+
+    return ExitCode::eControlCommunicationError;
+  }
+
+  
 ----
 
 **Python**
 [source,python]
 ----
-include::./python/continuous_streaming.py[tag=precautionary_stop]
+device_control.stopStream()
+    
 ----
 
 On the communication layer this uses the `PLAYSTOP` method (see xref:HOW_TO_COLA_COMMANDS.adoc#_cola_telegram_listing[telegram listings]) to stop the device. This command works independently of the devices `frontendMode` variable and can be called from any user level.
@@ -163,14 +185,22 @@ It creates an internal thread that receives frames from the data connection and 
 
 [source,c++]
 ----
-include::./cpp/continuous_streaming.cpp[tag=create_frame_grabber]
+pFrameGrabber = visionaryControl->createFrameGrabber();
+    pDataHandler  = visionaryControl->createDataHandler();
+    
 ----
 
 With the frame grabber created we can then start the acquisition of the device.
 
 [source,c++]
 ----
-include::./cpp/continuous_streaming.cpp[tag=start_acquisition]
+if (!visionaryControl->startAcquisition())
+  {
+    std::fprintf(stderr, "Failed to start acquisition.\n");
+
+    return ExitCode::eControlCommunicationError;
+  }
+  
 ----
 
 The data handler in the pointer variable `pDataHandler` contains all data received from the frame.
@@ -178,7 +208,8 @@ The data handler in the pointer variable `pDataHandler` contains all data receiv
 **Python**
 [source,python]
 ----
-include::./python/continuous_streaming.py[tag=start_acquisition]
+device_control.startStream()
+    
 ----
 
 On the communication layer this uses the `PLAYSTART` method to start the device independently of the devices `frontendMode` variable and can be called from any user level.
@@ -193,13 +224,97 @@ Since the acquisition has started and the data connection is established, we can
 **C++**
 [source,c++]
 ----
-include::./cpp/continuous_streaming.cpp[tag=capture_loop]
+for (unsigned i = 0u; i < numberOfFrames; ++i)
+  {
+    if (transportProtocol == "TCP")
+    {
+      if (!pFrameGrabber->genGetNextFrame(pDataHandler))
+      {
+        visionaryControl->stopAcquisition();
+
+        std::fprintf(stderr, "Frame timeout in continuous mode after %u frames\n", i);
+
+        return ExitCode::eFrameTimeout;
+      }
+      else
+      {
+        std::printf("Frame received in continuous mode, frame #%" PRIu32 "\n", pDataHandler->getFrameNum());
+        
 ----
 
 **Python**
 [source, python]
 ----
-include::./python/continuous_streaming.py[tag=capture_loop]
+sensor_data = Data.Data()
+    try:
+        number_frames = count
+        while number_frames > 0:
+            if transport_protocol == "TCP":
+                streaming_device.getFrame()
+                whole_frame = streaming_device.frame
+                sensor_data.read(whole_frame, convertToMM=False)
+                print("Data Timestamp [YYYY-MM-DD HH:MM:SS.mm] = %04u-%02u-%02u %02u:%02u:%02u.%03u" % (
+                    sensor_data.getDecodedTimestamp()))
+                if sensor_data.hasDepthMap:
+                    frame_number = sensor_data.depthmap.frameNumber
+                    print("Data contains depth map data:")
+                    if write_files:
+                        print("=== Write PNG file: Frame number: {}".format(
+                            frame_number))
+                        writeFrame(device_type, sensor_data,
+                                   os.path.join(img_dir, output_prefix))
+                        print("=== Converting image to pointcloud")
+
+                        # Non optimized
+                        start_time = time.time()
+                        world_coordinates, dist_data = convertToPointCloud(sensor_data.depthmap.distance,
+                                                                           sensor_data.depthmap.intensity,
+                                                                           sensor_data.depthmap.confidence,
+                                                                           sensor_data.cameraParams, sensor_data.xmlParser.stereo)
+                        end_time = time.time()
+                        execution_time = end_time - start_time
+                        print(
+                            f"convertToPointCloud took: {execution_time:.3}s")
+
+                        # Optimized
+                        is_stereo = True if device_type == "Visionary-S" else False
+                        start_time = time.time()
+                        point_cloud = convertToPointCloudOptimized(sensor_data.depthmap.distance,
+                                                                   sensor_data.depthmap.confidence,
+                                                                   sensor_data.cameraParams, is_stereo)
+                        end_time = time.time()
+                        execution_time = end_time - start_time
+                        print(
+                            f"convertToPointCloudOptimized took: {execution_time:.3}s")
+
+                        # Write output of the non optimized function to PLY
+                        writePointCloudToPLY(os.path.join(
+                            pcl_dir, "world_coordinates{}.ply".format(frame_number)), world_coordinates)
+
+                        # Write output of the optimized function to PCD
+                        writePointCloudToPCD(os.path.join(
+                            pcl_dir, "world_coordinates{}.pcd".format(frame_number)), point_cloud.reshape(-1, point_cloud.shape[-1]))
+            elif transport_protocol == "UDP":
+                byte_arr = []
+                myData, server = udp_socket.recvfrom(1024)
+                print(f"========== new BLOB received ==========")
+                print(f"Blob number: {((myData[1] << 8) | (myData[0]))}")
+                print("server IP: {}".format(server[0]))
+                # this is the port the server opens to transmit the data
+                print("server port: {}".format(server[1]))
+                print("========================================")
+                # FIN Flag of Statemap in header is set when new BLOB begins
+                while (myData[6].to_bytes(1, byteorder='big') != b'\x80'):
+                    byte_arr.append(myData[14:])
+                    print(
+                        f"Fragment number: {((myData[2] << 8) | (myData[3]))}")
+                    myData, server = udp_socket.recvfrom(1024)
+                print(f"Fragment number: {((myData[2] << 8) | (myData[3]))}")
+                byte_arr.append(myData[14:])  # Payload begins at byteindex 14
+            number_frames -= 1
+    except KeyboardInterrupt:
+        print("Terminating")
+    
 ----
 
 === Stop and end the acquisition
@@ -209,7 +324,13 @@ Finally, we need to end the data connection and stop the acquisition on the devi
 **C++**
 [source,c++]
 ----
-include::./cpp/continuous_streaming.cpp[tag=stop_acquisition]
+if (!visionaryControl->stopAcquisition())
+  {
+    std::fprintf(stderr, "Failed to stop acquisition.\n");
+
+    return ExitCode::eControlCommunicationError;
+  }
+  
 ----
 
 Now we release the frame grabber.
@@ -217,7 +338,8 @@ Now we release the frame grabber.
 **C++**
 [source,c++]
 ----
-include::./cpp/continuous_streaming.cpp[tag=release_frame_grabber]
+pFrameGrabber.reset();
+    
 ----
 
 This will stop the frame grabber thread and close the data connection to the device.
@@ -230,19 +352,40 @@ Finally, we close the control connection to the device.
 **Python**
 [source,python]
 ----
-include::./python/continuous_streaming.py[tag=close_streaming]
+device_control.login(Control.USERLEVEL_AUTH_CLIENT, 'CLIENT')
+    if transport_protocol == "TCP":
+        streaming_device.closeStream()
+        streaming_settings.setBlobTcpPort(2114)
+    elif transport_protocol == "UDP":
+        udp_socket.close()
+        # restoring back to TCP mode
+        streaming_settings.setTransportProtocol(
+            streaming_settings.PROTOCOL_TCP)
+        streaming_settings.setBlobTcpPort(2114)
+    
 ----
 
 **C++**
 [source,c++]
 ----
-include::./cpp/continuous_streaming.cpp[tag=close_control_channel]
+visionaryControl->close();
+  
 ----
 
 **Python**
 [source,python]
 ----
-include::./python/continuous_streaming.py[tag=close_streaming]
+device_control.login(Control.USERLEVEL_AUTH_CLIENT, 'CLIENT')
+    if transport_protocol == "TCP":
+        streaming_device.closeStream()
+        streaming_settings.setBlobTcpPort(2114)
+    elif transport_protocol == "UDP":
+        udp_socket.close()
+        # restoring back to TCP mode
+        streaming_settings.setTransportProtocol(
+            streaming_settings.PROTOCOL_TCP)
+        streaming_settings.setBlobTcpPort(2114)
+    
 ----
 
 This is also optional, since the control connection will be closed automatically when the `VisionaryControl` instance goes out of scope. However, we recommend to close the control connection to make it explicit that the control connection is no longer used.
@@ -275,13 +418,21 @@ IMPORTANT: Snapshots can only be acquired when the continuous streaming is stopp
 **C++**
 [source,c++]
 ----
-include::./cpp/snapshots.cpp[tag=initial_stop]
+if (!visionaryControl->stopAcquisition())
+  {
+    std::fprintf(stderr, "Failed to stop acquisition.\n");
+
+    return ExitCode::eControlCommunicationError;
+  }
+
+  
 ----
 
 **Python**
 [source,python]
 ----
-include::./python/continuous_streaming.py[tag=precautionary_stop]
+device_control.stopStream()
+    
 ----
 
 === Create a frame grabber
@@ -291,7 +442,11 @@ Not much to do here.
 **C++**
 [source,c++]
 ----
-include::./cpp/snapshots.cpp[tag=create_frame_grabber]
+pFrameGrabber = visionaryControl->createFrameGrabber();
+
+    // the data handler pointer will later contain the frame data
+    pDataHandler = visionaryControl->createDataHandler();
+    
 ----
 
 
@@ -321,13 +476,22 @@ In the sample we use a parameter `pollPeriodSpan` to wait for the device to be r
 **C++**
 [source,c++]
 ----
-include::./cpp/snapshots.cpp[tag=avoid_overrun]
+const auto timeSinceLastSnap = std::chrono::steady_clock::now() - lastSnapTime;
+
+    if (timeSinceLastSnap < pollPeriodSpan)
+    {
+      auto timeToWait = pollPeriodSpan - timeSinceLastSnap;
+      std::this_thread::sleep_for(timeToWait);
+    }
+    
 ----
 
 **Python**
 [source,python]
 ----
-include::./python/snapshots.py[tag=avoid_overrun]
+poll_period_span = poll_period_ms / 1000.0  # Convert milliseconds to seconds
+    last_snap_time = time.time()
+    
 ----
 
 === Get the snapshots and convert to point cloud
@@ -339,13 +503,170 @@ On the communication layer this uses the `PLAYNEXT` method to trigger a snapshot
 **C++**
 [source,c++]
 ----
-include::./cpp/snapshots.cpp[tag=acquire_snapshots]
+lastSnapTime = std::chrono::steady_clock::now();
+    if (!visionaryControl->stepAcquisition())
+    {
+      std::fprintf(stderr, "Failed to trigger a snapshot\n");
+
+      return ExitCode::eControlCommunicationError;
+    }
+
+    if (transportProtocol == "TCP")
+    {
+      // the snapshot has possibly already arrived, so parameter onlyNewer is false
+      if (!pFrameGrabber->genGetNextFrame(pDataHandler))
+      {
+        std::fprintf(stderr, "Frame timeout for snapshot\n");
+
+        return ExitCode::eFrameTimeout;
+      }
+      else
+      {
+        std::printf("Frame received in snapshot mode, frame #%" PRIu32 "\n", pDataHandler->getFrameNum());
+        if (storeData)
+        {
+          // write the frame to disk
+          writeFrame(visionaryType, *pDataHandler, filePrefix);
+
+          // Convert data to a point cloud
+          std::vector<PointXYZ> pointCloud;
+          pDataHandler->generatePointCloud(pointCloud);
+          pDataHandler->transformPointCloud(pointCloud);
+
+          // Write point cloud to PLY
+          const std::string framePrefix  = std::to_string(pDataHandler->getFrameNum());
+          std::string       plyFilePath  = framePrefix + "-pointcloud.ply";
+          const char*       cPlyFilePath = plyFilePath.c_str();
+          std::printf("Writing frame to %s\n", cPlyFilePath);
+
+          if (visionaryType == VisionaryType::eVisionaryS)
+            PointCloudPlyWriter::WriteFormatPLY(cPlyFilePath, pointCloud, pDataHandler->getRGBAMap(), true);
+          else
+            PointCloudPlyWriter::WriteFormatPLY(cPlyFilePath, pointCloud, pDataHandler->getIntensityMap(), true);
+          std::printf("Finished writing frame to %s\n", cPlyFilePath);
+        }
+      }
+    }
+    else if (transportProtocol == "UDP")
+    {
+      // std::chrono::milliseconds wait_ms(50u);
+      // std::this_thread::sleep_for(wait_ms);
+      std::vector<ITransport::ByteBuffer> byte_arr;
+      ITransport::ByteBuffer              buffer;
+      int                                 received;
+      std::size_t                         maxBytesToReceive = 1024;
+      int                                 fragementNumber   = -1;
+
+      // Receive from UDP Socket
+      buffer.resize(maxBytesToReceive);
+      received = udpSocket->read(buffer);
+
+      std::cout << "========== new BLOB received ==========" << std::endl;
+      std::cout << "Blob number: " << ((buffer[1] << 8) | buffer[0]) << std::endl;
+      std::cout << "server IP: " << ipAddress << std::endl;
+      std::cout << "========================================" << std::endl;
+
+      // FIN Flag of Statemap in header is set when new BLOB begins
+      // Dont continue the loop if two consecutive fragmentnumbers are the same,
+      // except at the beginning where two consecutive fragmentNumber can be zero
+      while ((buffer[6] != 0x80)
+             && ((fragementNumber - ((buffer[2] << 8) | buffer[3]) != 0)
+                 || !((fragementNumber != 0) && ((buffer[2] << 8) | buffer[3]) != 0)))
+      {
+        fragementNumber = ((buffer[2] << 8) | buffer[3]);
+        ITransport::ByteBuffer fragment(buffer.begin() + 14, buffer.end()); // Payload begins at byteindex 14
+        byte_arr.push_back(fragment);
+        std::cout << "Fragment number: " << ((buffer[2] << 8) | buffer[3]) << std::endl;
+        buffer.resize(maxBytesToReceive); // just to be sure capacity is at least maxBytesToReceive // lookup
+                                          // std::vector<uint8_t> capacity
+        received = udpSocket->read(buffer);
+      }
+      std::cout << "Fragment number: " << ((buffer[2] << 8) | buffer[3]) << std::endl;
+      ITransport::ByteBuffer last_fragment(buffer.begin() + 14, buffer.end()); // Payload begins at byteindex 14
+      byte_arr.push_back(last_fragment);
+
+      if (buffer[6] != 0x80)
+      {
+        visionaryControl->login(IAuthentication::UserLevel::SERVICE, "CUST_SERV");
+        // reset to TCP
+        setTransportProtocol(visionaryControl, "TCP");
+        setBlobTcpPort(visionaryControl, 2114);
+        visionaryControl->logout();
+        visionaryControl->close();
+        std::cout << "Abort UDP stream: FIN flag not reached." << std::endl;
+        return ExitCode::eStreamCommunicationError;
+      }
+    }
+    
 ----
 
 **Python**
 [source,python]
 ----
-include::./python/snapshots.py[tag=acquire_snapshots]
+# now we are not too fast and can trigger a snapshot
+        last_snap_time = time.time()
+        device_control.singleStep()
+        if transport_protocol == "TCP":
+            streaming_device.getFrame()
+            whole_frame = streaming_device.frame
+            sensor_data.read(whole_frame, convertToMM=False)
+            print("Data Timestamp [YYYY-MM-DD HH:MM:SS.mm] = %04u-%02u-%02u %02u:%02u:%02u.%03u" % (
+                sensor_data.getDecodedTimestamp()))
+            if sensor_data.hasDepthMap:
+                frame_number = sensor_data.depthmap.frameNumber
+                print("Data contains depth map data:")
+                if write_files:
+                    print("=== Write PNG file: Frame number: {}".format(frame_number))
+                    writeFrame(device_type, sensor_data,
+                               os.path.join(img_dir, output_prefix))
+                    print("=== Converting image to pointcloud")
+
+                    # Non optimized
+                    start_time = time.time()
+                    world_coordinates, dist_data = convertToPointCloud(sensor_data.depthmap.distance,
+                                                                       sensor_data.depthmap.intensity,
+                                                                       sensor_data.depthmap.confidence,
+                                                                       sensor_data.cameraParams, sensor_data.xmlParser.stereo)
+                    end_time = time.time()
+                    execution_time = end_time - start_time
+                    print(f"convertToPointCloud took: {execution_time:.3}s")
+
+                    # Optimized
+                    is_stereo = True if device_type == "Visionary-S" else False
+                    start_time = time.time()
+                    point_cloud = convertToPointCloudOptimized(sensor_data.depthmap.distance,
+                                                               sensor_data.depthmap.confidence,
+                                                               sensor_data.cameraParams, is_stereo)
+                    end_time = time.time()
+                    execution_time = end_time - start_time
+                    print(
+                        f"convertToPointCloudOptimized took: {execution_time:.5}s")
+
+                    # Write output of the non optimized function to PLY
+                    writePointCloudToPLY(os.path.join(
+                        pcl_dir, "world_coordinates{}.ply".format(frame_number)), world_coordinates)
+
+                    # Write output of the optimized function to PCD
+                    writePointCloudToPCD(os.path.join(
+                        pcl_dir, "world_coordinates{}.pcd".format(frame_number)), point_cloud.reshape(-1, point_cloud.shape[-1]))
+
+        elif transport_protocol == "UDP":
+            byte_arr = []
+            myData, server = udp_socket.recvfrom(1024)
+            print(f"========== new BLOB received ==========")
+            print(f"Blob number: {((myData[1] << 8) | (myData[0]))}")
+            print("server IP: {}".format(server[0]))
+            # this is the port the server opens to transmit the data
+            print("server port: {}".format(server[1]))
+            print("========================================")
+            # FIN Flag of Statemap in header is set when new BLOB begins
+            while (myData[6].to_bytes(1, byteorder='big') != b'\x80'):
+                byte_arr.append(myData[14:])
+                print(f"Fragment number: {((myData[2] << 8) | (myData[3]))}")
+                myData, server = udp_socket.recvfrom(1024)
+            print(f"Fragment number: {((myData[2] << 8) | (myData[3]))}")
+            byte_arr.append(myData[14:])  # Payload begins at byteindex 14
+        
 ----
 
 === Stop and end the acquisition
@@ -355,13 +676,24 @@ Since taking a snapshot leaves the device in a stopped state, we do not need to 
 **C++**
 [source,c++]
 ----
-include::./cpp/snapshots.cpp[tag=release_frame_grabber]
+pFrameGrabber.reset();
+    
 ----
 
 **Python**
 [source,python]
 ----
-include::./python/snapshots.py[tag=close_streaming]
+device_control.login(Control.USERLEVEL_AUTH_CLIENT, 'CLIENT')
+    if transport_protocol == "TCP":
+        streaming_device.closeStream()
+        streaming_settings.setBlobTcpPort(2114)
+    elif transport_protocol == "UDP":
+        udp_socket.close()
+        # restoring back to TCP mode
+        streaming_settings.setTransportProtocol(
+            streaming_settings.PROTOCOL_TCP)
+        streaming_settings.setBlobTcpPort(2114)
+    
 ----
 
 and close the control connection to the device.
@@ -369,13 +701,17 @@ and close the control connection to the device.
 **C++**
 [source,c++]
 ----
-include::./cpp/snapshots.cpp[tag=close_control_channel]
+visionaryControl->logout();
+  visionaryControl->close();
+  
 ----
 
 **Python**
 [source,python]
 ----
-include::./python/snapshots.py[tag=logout_and_close]
+device_control.logout()
+    device_control.close()
+    
 ----
 
 == External trigger
@@ -587,32 +923,130 @@ As described above for the other operation modes, we create a frame grabber inst
 **C++**
 [source,c++]
 ----
-include::./cpp/external_trigger.cpp[tag=precautionary_sleep]
+std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  
 ----
 
 **Python**
 [source,python]
 ----
-include::./python/external_trigger.py[tag=precautionary_stop]
+sleep(0.1)
+    
 ----
 
 **C++**
 [source,c++]
 ----
-include::./cpp/external_trigger.cpp[tag=create_frame_grabber]
+std::shared_ptr<VisionaryData>    pDataHandler  = nullptr;
+  std::unique_ptr<FrameGrabberBase> pFrameGrabber = nullptr;
+
+  if (transportProtocol == "TCP")
+  {
+    //-----------------------------------------------
+    // create a frame grabber suitable for the Visionary type used in visionaryControl
+    pFrameGrabber = visionaryControl->createFrameGrabber();
+    // the data handler pointer will later contain the frame data
+    pDataHandler = visionaryControl->createDataHandler();
+  }
+  
 ----
 
 and wait for images to arrive after a trigger signal was received
 
 [source,c++]
 ----
-include::./cpp/external_trigger.cpp[tag=wait_for_frame]
+while (!pFrameGrabber->genGetNextFrame(pDataHandler, false))
+        ;
+
+      // finally we got a frame
+      std::printf("Frame received in external trigger mode, frame #%" PRIu32 "\n", pDataHandler->getFrameNum());
+      
 ----
 
 **Python**
 [source,python]
 ----
-include::./python/external_trigger.py[tag=wait_for_frame]
+# wait for external trigger
+    sensor_data = Data.Data()
+    interrupted = False
+    for i in range(count):
+        frame_number = None
+        print("Waiting for the trigger, press ctrl-C to abort")
+        while not interrupted:
+            try:
+                if transport_protocol == "TCP":
+                    streaming_device.getFrame()
+                    wholeFrame = streaming_device.frame
+                    sensor_data.read(wholeFrame, convertToMM=False)
+                    print("Data Timestamp [YYYY-MM-DD HH:MM:SS.mm] = %04u-%02u-%02u %02u:%02u:%02u.%03u" % (
+                        sensor_data.getDecodedTimestamp()))
+                    if sensor_data.depthmap.frameNumber != frame_number:
+                        print(
+                            f"Frame received in external trigger mode, frame #{sensor_data.depthmap.frameNumber}")
+                        if write_files:
+                            print("=== Write PNG file: Frame number: {}".format(
+                                frame_number))
+                            writeFrame(device_type, sensor_data,
+                                       os.path.join(img_dir, output_prefix))
+                            print("=== Converting image to pointcloud")
+
+                            # Non optimized
+                            start_time = time.time()
+                            world_coordinates, dist_data = convertToPointCloud(sensor_data.depthmap.distance,
+                                                                               sensor_data.depthmap.intensity,
+                                                                               sensor_data.depthmap.confidence,
+                                                                               sensor_data.cameraParams, sensor_data.xmlParser.stereo)
+                            end_time = time.time()
+                            execution_time = end_time - start_time
+                            print(
+                                f"convertToPointCloud took: {execution_time:.3}s")
+
+                            # Optimized
+                            is_stereo = True if device_type == "Visionary-S" else False
+                            start_time = time.time()
+                            point_cloud = convertToPointCloudOptimized(sensor_data.depthmap.distance,
+                                                                       sensor_data.depthmap.confidence,
+                                                                       sensor_data.cameraParams, is_stereo)
+                            end_time = time.time()
+                            execution_time = end_time - start_time
+                            print(
+                                f"convertToPointCloudOptimized took: {execution_time:.3}s")
+
+                            # Write output of the non optimized function to PLY
+                            writePointCloudToPLY(os.path.join(
+                                pcl_dir, "world_coordinates{}.ply".format(frame_number)), world_coordinates)
+
+                            # Write output of the optimized function to PCD
+                            writePointCloudToPCD(os.path.join(
+                                pcl_dir, "world_coordinates{}.pcd".format(frame_number)), point_cloud.reshape(-1, point_cloud.shape[-1]))
+                        frame_number = sensor_data.depthmap.frameNumber
+                        break
+                elif transport_protocol == "UDP":
+                    byte_arr = []
+                    myData, server = udp_socket.recvfrom(1024)
+                    print(f"========== new BLOB received ==========")
+                    print(f"Blob number: {((myData[1] << 8) | (myData[0]))}")
+                    print("server IP: {}".format(server[0]))
+                    # this is the port the server opens to transmit the data
+                    print("server port: {}".format(server[1]))
+                    print("========================================")
+                    # FIN Flag of Statemap in header is set when new BLOB begins
+                    while (myData[6].to_bytes(1, byteorder='big') != b'\x80'):
+                        byte_arr.append(myData[14:])
+                        print(
+                            f"Fragment number: {((myData[2] << 8) | (myData[3]))}")
+                        myData, server = udp_socket.recvfrom(1024)
+                    print(
+                        f"Fragment number: {((myData[2] << 8) | (myData[3]))}")
+                    # Payload begins at byteindex 14
+                    byte_arr.append(myData[14:])
+            except Exception:
+                continue  # Continue the loop if a timeout occurs
+            except KeyboardInterrupt:
+                print("Interrupted by user")
+                interrupted = True
+                break
+    
 ----
 
 Note that the frame grabber may time out when the time until an external trigger occurs is too long.
@@ -626,7 +1060,9 @@ Finally, we release the frame grabber
 **C++**
 [source,c++]
 ----
-include::./cpp/external_trigger.cpp[tag=release_frame_grabber]
+pFrameGrabber.reset();
+    setBlobTcpPort(visionaryControl, 2114);
+    
 ----
 
 and write back the saved configuration as described xref:_save_the_previous_configuration[above]. Finally, we close the control connection to the device.
@@ -634,12 +1070,19 @@ and write back the saved configuration as described xref:_save_the_previous_conf
 **Python**
 [source,python]
 ----
-include::./python/external_trigger.py[tag=restore_config]
+# Login as authorized client
+    device_control.login(Control.USERLEVEL_AUTH_CLIENT, 'CLIENT')
+    # restore the old configuration
+    write_configuration(device_control, port_names, old_config)
+    print("Restored old configuration.")
+    
 ----
 
 [source,python]
 ----
-include::./python/external_trigger.py[tag=logout_and_close]
+device_control.logout()
+    device_control.close()
+    
 ----
 
 == Processing the frame data
@@ -662,13 +1105,17 @@ It is accessed like this
 **C++**
 [source,c++]
 ----
-include::../shared/cpp/framewrite.cpp[tag=frame_meta_data]
+const std::uint32_t frameNumber = rDataHandler.getFrameNum();
+  const std::uint64_t timestamp   = rDataHandler.getTimestamp();
+  
 ----
 
 **Python**
 [source,python]
 ----
-include::../shared/python/framewrite.py[tag=frame_meta_data]
+config.set('frame', 'framenumber', str(data.changedCounter))
+        config.set('frame', 'timestamp', str(data.parsing_time_s))
+        
 ----
 
 
@@ -679,13 +1126,17 @@ You can access the frame geometry either using
 **C++**
 [source,c++]
 ----
-include::../shared/cpp/framewrite.cpp[tag=frame_geometry]
+const int width  = rDataHandler.getWidth();
+  const int height = rDataHandler.getHeight();
+  
 ----
 
 **Python**
 [source,python]
 ----
-include::../shared/python/framewrite.py[tag=frame_geometry]
+config.set('frame', 'width', str(data.xmlParser.imageWidth))
+        config.set('frame', 'height', str(data.xmlParser.imageHeight))
+        
 ----
 
 which is a shortcut for
@@ -709,20 +1160,30 @@ after obtaining the camera parameter structure
 **C++**
 [source,c++]
 ----
-include::../shared/cpp/framewrite.cpp[tag=camera_data]
+const visionary::CameraParameters& rCameraParameters = rDataHandler.getCameraParameters();
+  
 ----
 
 This structure also gives access to the intrinsic camera parameters,
 
 [source,c++]
 ----
-include::../shared/cpp/framewrite.cpp[tag=intrinsics]
+const double cx = rCameraParameters.cx;
+  const double cy = rCameraParameters.cy;
+  const double fx = rCameraParameters.fx;
+  const double fy = rCameraParameters.fy;
+  
 ----
 
 **Python**
 [source,python]
 ----
-include::../shared/python/framewrite.py[tag=intrinsics]
+config.add_section('intrinsics')
+        config.set('intrinsics', 'cx', str(data.xmlParser.cx))
+        config.set('intrinsics', 'cy', str(data.xmlParser.cy))
+        config.set('intrinsics', 'fx', str(data.xmlParser.fx))
+        config.set('intrinsics', 'fy', str(data.xmlParser.fy))
+        
 ----
 
 the lens distortion parameters,
@@ -730,13 +1191,24 @@ the lens distortion parameters,
 **C++**
 [source,c++]
 ----
-include::../shared/cpp/framewrite.cpp[tag=lens_distortion]
+const double k1 = rCameraParameters.k1;
+  const double k2 = rCameraParameters.k2;
+  const double p1 = rCameraParameters.p1;
+  const double p2 = rCameraParameters.p2;
+  const double k3 = rCameraParameters.k3;
+  
 ----
 
 **Python**
 [source,python]
 ----
-include::../shared/python/framewrite.py[tag=lens_distortion]
+config.add_section('lensdistortion')
+        config.set('lensdistortion', 'k1', str(data.xmlParser.k1))
+        config.set('lensdistortion', 'k2', str(data.xmlParser.k2))
+        config.set('lensdistortion', 'p1', str(data.xmlParser.p1))
+        config.set('lensdistortion', 'p2', str(data.xmlParser.p2))
+        config.set('lensdistortion', 'k3', str(data.xmlParser.k3))
+        
 ----
 
 and the extrinsic camera parameters, or more specifically the transformation from the camera coordinate system to the world coordinate system defined in the device's mounting settings.
@@ -744,13 +1216,17 @@ and the extrinsic camera parameters, or more specifically the transformation fro
 **C++**
 [source,c++]
 ----
-include::../shared/cpp/framewrite.cpp[tag=cam2world]
+const double* const pCam2worldMatrix = rCameraParameters.cam2worldMatrix;
+  
 ----
 
 **Python**
 [source,python]
 ----
-include::../shared/python/framewrite.py[tag=cam2world]
+cam2worldMatrix_str = ' '.join(
+            map(str, data.cameraParams.cam2worldMatrix))
+        config.set('cam2world', 'cam2worldMatrix', cam2worldMatrix_str)
+        
 ----
 
 For historical reasons we also have the focal to ray-cross distance value
@@ -758,13 +1234,16 @@ For historical reasons we also have the focal to ray-cross distance value
 **C++**
 [source,c++]
 ----
-include::../shared/cpp/framewrite.cpp[tag=f2rc]
+const double f2rc = rCameraParameters.f2rc;
+  
 ----
 
 **Python**
 [source,python]
 ----
-include::../shared/python/framewrite.py[tag=f2rc]
+config.add_section('cam2world')
+        config.set('cam2world', 'f2rc', str(data.xmlParser.f2rc))
+        
 ----
 
 which is the distance along the optical axis from the focal point to the reference point, i.e. the origin of the camera coordiante system.
@@ -784,13 +1263,40 @@ For the Visionary-S CX the map data is accessed like this
 **C++**
 [source,c++]
 ----
-include::../shared/cpp/framewrite.cpp[tag=visionary_s_maps]
+// cast to specific visionary data type
+      const VisionarySData& rVisionarySData = dynamic_cast<const VisionarySData&>(rDataHandler);
+      
 ----
 
 **Python**
 [source,python]
 ----
-include::../shared/python/framewrite.py[tag=visionary_s_maps]
+# rgba
+        rgba_data = np.uint32(np.reshape(data.depthmap.intensity, (512, 640)))
+        rgba_data = np.frombuffer(rgba_data, np.uint8)
+        rgba_data = np.reshape(rgba_data, (512, 640, 4))
+        bgra_data = cv2.cvtColor(rgba_data, cv2.COLOR_RGBA2BGRA)
+        cv2.imwrite(file_prefix + frame_prefix + "-bgra.png",
+                    bgra_data, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+        tagAndName = TagAndName("bgra", frame_prefix + "-bgra.png")
+        mapdescs.append(tagAndName)
+
+        # z
+        zmap_data = np.array(
+            data.depthmap.distance, dtype=np.uint16).reshape((height, width))
+        cv2.imwrite(file_prefix + frame_prefix + "-z.png",
+                    zmap_data, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+        tagAndName = TagAndName("z", frame_prefix + "-z.png")
+        mapdescs.append(tagAndName)
+
+        # state
+        state_data = np.array(data.depthmap.confidence,
+                              dtype=np.uint16).reshape((height, width))
+        cv2.imwrite(file_prefix + frame_prefix + "-state.png",
+                    state_data, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+        tagAndName = TagAndName("state", frame_prefix + "-state.png")
+        mapdescs.append(tagAndName)
+        
 ----
 
 and for the Visionary-T Mini CX like this
@@ -798,13 +1304,38 @@ and for the Visionary-T Mini CX like this
 **C++**
 [source,c++]
 ----
-include::../shared/cpp/framewrite.cpp[tag=visionary_t_mini_maps]
+// cast to specific visionary data type
+      const VisionaryTMiniData& rVisionaryTMiniData = dynamic_cast<const VisionaryTMiniData&>(rDataHandler);
+      
 ----
 
 **Python**
 [source,python]
 ----
-include::../shared/python/framewrite.py[tag=visionary_t_mini_maps]
+# intensity
+        intensity_data = np.array(
+            data.depthmap.intensity, dtype=np.uint16).reshape((height, width))
+        cv2.imwrite(file_prefix + frame_prefix + "-int.png",
+                    intensity_data, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+        tagAndName = TagAndName("int", frame_prefix + "-int.png")
+        mapdescs.append(tagAndName)
+
+        # distance
+        distance_data = np.array(
+            data.depthmap.distance, dtype=np.uint16).reshape((height, width))
+        cv2.imwrite(file_prefix + frame_prefix + "-dist.png",
+                    distance_data, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+        tagAndName = TagAndName("dist", frame_prefix + "-dist.png")
+        mapdescs.append(tagAndName)
+
+        # confidence
+        confidence_data = np.array(
+            data.depthmap.confidence, dtype=np.uint16).reshape((height, width))
+        cv2.imwrite(file_prefix + frame_prefix + "-conf.png",
+                    confidence_data, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+        tagAndName = TagAndName("conf", frame_prefix + "-conf.png")
+        mapdescs.append(tagAndName)
+        
 ----
 
 

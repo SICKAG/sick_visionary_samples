@@ -113,13 +113,29 @@ IMPORTANT: Before configuring any frontend settings, a connection to the device'
 **C++**
 [source, c++]
 ----
-include::./cpp/visionary_s_frontend_config.cpp[tag=connect_and_login]
+using namespace visionary;
+
+  VisionaryControl visionaryControl(visionaryType);
+  if (!visionaryControl.open(ipAddress))
+  {
+    std::printf("Failed to open control connection to device.\n");
+    return ExitCode::eCommunicationError;
+  }
+  if (!visionaryControl.login(IAuthentication::UserLevel::AUTHORIZED_CLIENT, "CLIENT"))
+  {
+    std::printf("Failed to log into the device.\n");
+    return ExitCode::eAuthenticationError;
+  }
+  
 ----
 
 **Python**
 [source, python]
 ----
-include::./python/visionary_s_frontend_config.py[tag=connect_and_login]
+device_control = Control(ip_address, cola_protocol, control_port)
+    device_control.open()
+    device_control.login(Control.USERLEVEL_AUTH_CLIENT, "CLIENT")
+    
 ----
 
 === 2. Set the acquisition mode
@@ -146,13 +162,26 @@ To configure the acquisition mode we simply specify the right int value accordin
 **C++**
 [source, c++]
 ----
-include::./cpp/visionary_s_frontend_config.cpp[tag=set_acquisition_mode]
+std::uint8_t acquisitionModeStereo = 0; // 0 = NORMAL
+  CoLaCommand  setAcquisitionModeStereoCommand =
+    CoLaParameterWriter(CoLaCommandType::WRITE_VARIABLE, "acquisitionModeStereo")
+      .parameterUSInt(acquisitionModeStereo)
+      .build();
+  CoLaCommand setAcquisitionModeStereoResponse = visionaryControl.sendCommand(setAcquisitionModeStereoCommand);
+  
 ----
 
 **Python**
 [source, python]
 ----
-include::./python/visionary_s_frontend_config.py[tag=set_acquisition_mode]
+new_acquisition_mode_stereo = AcquisitionModeStereo.NORMAL
+    device_control.setAcquisitionModeStereo(new_acquisition_mode_stereo.value)
+
+    get_acquisition_mode_stereo = device_control.getAcquisitionModeStereo()
+    acquisition_mode_stereo = AcquisitionModeStereo(
+        get_acquisition_mode_stereo)
+    print(f"\nRead AcquisitionModeStereo: {acquisition_mode_stereo.name}")
+    
 ----
 
 === 3. Configure a ROI (Region of interest)
@@ -185,13 +214,34 @@ Define the four elements:
 **C++**
 [source, c++]
 ----
-include::./cpp/visionary_s_frontend_config.cpp[tag=set_ROI]
+std::uint32_t left   = 160;
+  std::uint32_t right  = 480;
+  std::uint32_t top    = 128;
+  std::uint32_t bottom = 384;
+
+  // Set ROI for Auto Exposure 3D
+  CoLaCommand setAutoExposureROICommand = CoLaParameterWriter(CoLaCommandType::WRITE_VARIABLE, "autoExposureROI")
+                                            .parameterUDInt(left)
+                                            .parameterUDInt(right)
+                                            .parameterUDInt(top)
+                                            .parameterUDInt(bottom)
+                                            .build();
+  CoLaCommand setAutoExposureROIResponse = visionaryControl.sendCommand(setAutoExposureROICommand);
+  
 ----
 
 **Python**
 [source, python]
 ----
-include::./python/visionary_s_frontend_config.py[tag=set_ROI]
+left = 160
+    right = 480
+    top = 128
+    bottom = 384
+    device_control.setAutoExposure3DROI(left, right, top, bottom)
+    device_control.setAutoExposureColorROI(left, right, top, bottom)
+    # NOTE: The user is responisble to make sure that the region he sets the ROI to, is actually white.
+    device_control.setAutoWhiteBalanceROI(left, right, top, bottom)
+    
 ----
 
 === 4. Method invokation: auto exposure parameterized
@@ -225,13 +275,75 @@ Additionally we read the variable `integrationTimeUs` **before and after** the m
 **C++**
 [source, c++]
 ----
-include::cpp/visionary_s_frontend_config.cpp[tag=invoke_autoExposure]
+for (uint8_t autoType = 0; autoType < 3;
+       autoType++) // 0 = Auto Exposure 3D, 1 = Auto Exposure RGB, 2 = Auto White Balance
+  {
+    std::printf("Invoke method 'TriggerAutoExposureParameterized' (Param: %d) ...\n", autoType);
+
+    CoLaCommand invokeAutoExposureCommand =
+      CoLaParameterWriter(CoLaCommandType::METHOD_INVOCATION, "TriggerAutoExposureParameterized")
+        .parameterUInt(1)
+        .parameterUSInt(autoType)
+        .build();
+    CoLaCommand autoExposureResponse = visionaryControl.sendCommand(invokeAutoExposureCommand);
+
+    if (autoExposureResponse.getError() != CoLaError::OK)
+    {
+      std::printf("ERROR: Invoking 'TriggerAutoExposureParameterized' fails! (autoExposureResponse: %d)\n",
+                  CoLaParameterReader(autoExposureResponse).readBool());
+    }
+
+    // Wait until auto exposure method is finished
+    bool      autoExpParamRunning = true;
+    long long startTime           = std::chrono::system_clock::now().time_since_epoch().count();
+    long long timeNow             = startTime;
+    while (autoExpParamRunning)
+    {
+      CoLaCommand getAutoExpParamRunningCommand =
+        CoLaParameterWriter(CoLaCommandType::READ_VARIABLE, "autoExposureParameterizedRunning").build();
+      CoLaCommand autoExpParamRunningResponse = visionaryControl.sendCommand(getAutoExpParamRunningCommand);
+      autoExpParamRunning                     = CoLaParameterReader(autoExpParamRunningResponse).readBool();
+
+      timeNow = std::chrono::system_clock::now().time_since_epoch().count();
+      if ((timeNow - startTime)
+          <= 10000000000) // 10 sec = 10 000 000 000 ns (time after auto exposure method should be finished)
+      {
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+      }
+      else
+      {
+        std::printf("TIMEOUT: auto exposure function (Param: %d) needs longer than expected!\n", autoType);
+      }
+    }
+  }
+  
 ----
 
 **Python**
 [source, python]
 ----
-include::python/visionary_s_frontend_config.py[tag=invoke_autoExposure]
+for i in range(3):
+        auto_type = i
+        auto_exposure_response = device_control.startAutoExposureParameterized(
+            struct.pack(">HB", 1, auto_type))
+        if not auto_exposure_response:
+            print(
+                f"ERROR: Invoking 'TriggerAutoExposureParameterized' fails! (autoExposureResponse: {auto_exposure_response}")
+        # Wait until auto exposure method is finished
+        auto_exp_param_running = True
+        start_time = time.time()
+        time_now = start_time
+        while auto_exp_param_running:
+            auto_exp_param_running = device_control.getAutoExposureParameterizedRunning()
+            time_now = time.time()
+            # 10 sec (time after auto exposure method should be finished)
+            if (time_now - start_time) <= 10:
+                time.sleep(1)
+            else:
+                print(
+                    f"TIMEOUT: auto exposure function (Param: {auto_type}) needs longer than expected!")
+
+    
 ----
 
 === 5. Read and set Integration Time
@@ -262,13 +374,22 @@ To configure the integration time we:
 **C++**
 [source, c++]
 ----
-include::cpp/visionary_s_frontend_config.cpp[tag=set_integrationTime]
+std::uint32_t newIntegrationTimeUs = 2000;
+  std::printf("Setting Integration time to %d\n", newIntegrationTimeUs);
+  CoLaCommand setIntegrationTimeUsCommand = CoLaParameterWriter(CoLaCommandType::WRITE_VARIABLE, "integrationTimeUs")
+                                              .parameterUDInt(newIntegrationTimeUs)
+                                              .build();
+  CoLaCommand setIntegrationTimeUsResponse = visionaryControl.sendCommand(setIntegrationTimeUsCommand);
+  
 ----
 
 **Python**
 [source, python]
 ----
-include::./python/visionary_s_frontend_config.py[tag=set_integrationTime]
+device_control.setIntegrationTimeUs(3000)
+    integration_time = device_control.getIntegrationTimeUs()
+    print(f"Set IntegrationTimeUS: {integration_time}")
+    
 ----
 
 To read the new integration time we:
@@ -280,13 +401,20 @@ To read the new integration time we:
 **C++**
 [source, c++]
 ----
-include::cpp/visionary_s_frontend_config.cpp[tag=read_integrationTime]
+CoLaCommand getIntegrationTimeUsCommand =
+      CoLaParameterWriter(CoLaCommandType::READ_VARIABLE, "integrationTimeUs").build();
+    getIntegrationTimeUsResponse = visionaryControl.sendCommand(getIntegrationTimeUsCommand);
+    integrationTimeUs            = CoLaParameterReader(getIntegrationTimeUsResponse).readUDInt();
+    std::printf("Read new integrationTimeUs = %d\n", integrationTimeUs);
+    
 ----
 
 **Python**
 [source, python]
 ----
-include::./python/visionary_s_frontend_config.py[tag=read_integrationTime]
+integration_time = device_control.getIntegrationTimeUs()
+    print(f"Read IntegrationTimeUS: {integration_time}")
+    
 ----
 
 === Final step: Logout and disconnect
@@ -296,13 +424,20 @@ Finally we logout from the device and disconnect the control connection.
 **C++**
 [source, c++]
 ----
-include::cpp/visionary_s_frontend_config.cpp[tag=logout_and_disconnect]
+if (!visionaryControl.logout())
+  {
+    std::printf("Failed to logout\n");
+    return ExitCode::eAuthenticationError;
+  }
+  
 ----
 
 **Python**
 [source, python]
 ----
-include::./python/visionary_s_frontend_config.py[tag=logout_and_disconnect]
+device_control.logout()
+    device_control.close()
+    
 ----
 
 
@@ -361,13 +496,22 @@ To configure the binning option we:
 **C++**
 [source, c++]
 ----
-include::cpp/visionary_t_mini_frontend_config.cpp[tag=set_binningOption]
+UserTypes::BinningOption newBinningOpiton(1);
+  CoLaCommand              setBinningOptionCommand =
+    CoLaParameterWriter(CoLaCommandType::WRITE_VARIABLE, "binningOption").parameterUSInt(newBinningOpiton).build();
+  CoLaCommand setBinningOptionResponse = visionaryControl.sendCommand(setBinningOptionCommand);
+  std::printf("Set binningOption = %s\n", newBinningOpiton.to_str().c_str());
+  
 ----
 
 **Python**
 [source, python]
 ----
-include::python/visionary_t_mini_frontend_config.py[tag=set_binningOption]
+new_binning_option = BinningOption['TWO_BY_TWO']
+    device_control.writeVariable(
+        b'binningOption', struct.pack('>B', new_binning_option))
+    print(f"Set BinningOption to {new_binning_option.name}")
+    
 ----
 
 To read the newly set binning option we:
@@ -379,13 +523,23 @@ To read the newly set binning option we:
 **C++**
 [source, c++]
 ----
-include::cpp/visionary_t_mini_frontend_config.cpp[tag=read_binningOption]
+std::printf("Successfully set binningOption\n");
+    CoLaCommand  getBinningOption = CoLaParameterWriter(CoLaCommandType::READ_VARIABLE, "binningOption").build();
+    CoLaCommand  getBinningOptionResponse  = visionaryControl.sendCommand(getBinningOption);
+    std::uint8_t binningOptionEnum         = CoLaParameterReader(getBinningOptionResponse).readUSInt();
+    UserTypes::BinningOption binningOption = UserTypes::BinningOption(binningOptionEnum);
+    std::printf("Read binningOption = %s\n", binningOption.to_str().c_str());
+    
 ----
 
 **Python**
 [source, python]
 ----
-include::python/visionary_t_mini_frontend_config.py[tag=read_binningOption]
+get_binning_option = device_control.readVariable(b'binningOption')
+    binning_option_enum = struct.unpack('>B', get_binning_option)[0]
+    binning_option = BinningOption(binning_option_enum)
+    print(f"Read BinningOption: {binning_option.name}\n")
+    
 ----
 
 === 3. Configure the Frame Period
@@ -411,13 +565,21 @@ To configure the frame period we:
 **C++**
 [source, c++]
 ----
-include::cpp/visionary_t_mini_frontend_config.cpp[tag=set_framePeriod]
+std::uint32_t newFramePeriodUs = 60000;
+  std::printf("Set FramePeriodUs = %d\n", newFramePeriodUs);
+  CoLaCommand setFramePeriodUsCommand =
+    CoLaParameterWriter(CoLaCommandType::WRITE_VARIABLE, "framePeriodUs").parameterUDInt(newFramePeriodUs).build();
+  CoLaCommand setFramePeriodUsResponse = visionaryControl.sendCommand(setFramePeriodUsCommand);
+  
 ----
 
 **Python**
 [source, python]
 ----
-include::python/visionary_t_mini_frontend_config.py[tag=set_framePeriodUs]
+new_frame_period_us = 60000
+    device_control.setFramePeriodUs(new_frame_period_us)
+    print(f"Set FramePeriodUS to {new_frame_period_us}")
+    
 ----
 
 To read the new frame period:
@@ -429,13 +591,20 @@ To read the new frame period:
 **C++**
 [source, c++]
 ----
-include::cpp/visionary_t_mini_frontend_config.cpp[tag=read_framePeriod]
+std::printf("Successfully set framePeriodUs\n");
+    CoLaCommand getFramePeriodUsCommand  = CoLaParameterWriter(CoLaCommandType::READ_VARIABLE, "framePeriodUs").build();
+    CoLaCommand getFramePeriodUsResponse = visionaryControl.sendCommand(getFramePeriodUsCommand);
+    std::uint32_t FramePeriodUs          = CoLaParameterReader(getFramePeriodUsResponse).readUDInt();
+    std::printf("Read FramePeriodUs = %d\n", FramePeriodUs);
+    
 ----
 
 **Python**
 [source, python]
 ----
-include::python/visionary_t_mini_frontend_config.py[tag=read_framePeriodUs]
+frame_period_us = device_control.getFramePeriodUs()
+    print(f"Read framePeriodUs: {frame_period_us}\n")
+    
 ----
 
 === Final step: Logout and disconnect
@@ -456,13 +625,31 @@ image:images/writeEeprom.PNG[]
 **Python**
 [source, python]
 ----
-include::python/save_permanently.py[tag=save_permanently_integration_time]
+new_integration_time = 3000
+            device_control.setIntegrationTimeUs(new_integration_time)
+            print(f"Set IntegrationTimeUS: {new_integration_time} µs.")
+            # call writeEeprom to permanently save the changed parameters
+            result = device_control.writeEeprom()
+            if result:
+                print(
+                    f"Permanently changed IntegrationTimeUs to {new_integration_time} µs.")
+            else:
+                print("Failed to save parameter permanently.")
+            
 ----
 
 **C++**
 [source, c++]
 ----
-include::cpp/save_permanently.cpp[tag=writeEeprom]
+int writeEeprom(std::shared_ptr<visionary::VisionaryControl> visionaryControl)
+{
+  using namespace visionary;
+  CoLaCommand writeEepromCommand = CoLaParameterWriter(CoLaCommandType::METHOD_INVOCATION, "mEEwriteall").build();
+  CoLaCommand writeEepromCommandResponse = visionaryControl->sendCommand(writeEepromCommand);
+  bool        result                     = CoLaParameterReader(writeEepromCommandResponse).readBool();
+  return result;
+}
+
 ----
 
 === Restore default values
@@ -479,11 +666,36 @@ NOTE: Calling `loadFactoryDefaults()` will reset *ALL* parameters to their defau
 **Python**
 [source, python]
 ----
-include::python/save_permanently.py[tag=restore_default_integration_time]
+default_integration_time_us = 1000  # µs
+            device_control.setIntegrationTimeUs(default_integration_time_us)
+            result = device_control.writeEeprom()
+            if result:
+                print(
+                    f"Restored IntegrationTimeUs to default of {default_integration_time_us} µs.")
+            else:
+                print("Failed to restore default value for IntegrationTimeUs.")
+            
 ----
 
 **C++**
 [source, c++]
 ----
-include::cpp/save_permanently.cpp[tag=restore_default]
+std::uint32_t defaultIntegrationTimeUs = 1000;
+      CoLaCommand   setDefaultIntegrationTimeUsCommand =
+        CoLaParameterWriter(CoLaCommandType::WRITE_VARIABLE, "integrationTimeUs")
+          .parameterUDInt(defaultIntegrationTimeUs)
+          .build();
+      auto setDefaultIntegrationTimeUsResponse = visionaryControl->sendCommand(setDefaultIntegrationTimeUsCommand);
+      std::printf("Set integrationTimeUs to %d µs\n", defaultIntegrationTimeUs);
+
+      int result = writeEeprom(visionaryControl);
+      if (result)
+      {
+        std::printf("Restored IntegrationTimeUs to default of %d µs\n", defaultIntegrationTimeUs);
+      }
+      else
+      {
+        std::printf("Failed to restore default value for IntegrationTimeUs.");
+      }
+      
 ----
