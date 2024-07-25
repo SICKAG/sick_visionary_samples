@@ -98,12 +98,27 @@ The `VisionaryControl` class provides an interface for controlling a Visionary C
 **C++**
 [source,c++]
 ----
-include::./cpp/system_log.cpp[tag=control_connection] 
+using namespace visionary;
+
+  // Generate Visionary instance
+  VisionaryControl visionaryControl(visionaryType);
+
+  // Connect to devices control channel
+  if (!visionaryControl.open(ipAddress))
+  {
+    std::printf("Failed to open control connection to device.\n");
+    return ExitCode::eCommunicationError;
+  }
+   
 ----
 **Python**
 [source, python]
 ----
-include::./python/system_log.py[tag=control_connection] 
+# Create a Control object for the device
+    deviceControl = Control(ip_address, cola_protocol, control_port)
+    # Open a connection to the device
+    deviceControl.open()
+     
 ----
 
 === Step 2: Build and send the read command
@@ -113,13 +128,23 @@ Once a connection to the device has been successfully established we construct a
 **C++**
 [source,c++]
 ----
-include::./cpp/system_log.cpp[tag=build_and_send_command] 
+// Read info messages variable
+  CoLaCommand getMessagesCommand = CoLaParameterWriter(CoLaCommandType::READ_VARIABLE, "MSinfo").build();
+  CoLaCommand messagesResponse   = visionaryControl.sendCommand(getMessagesCommand);
+  if (messagesResponse.getError() != CoLaError::OK)
+  {
+    std::printf("Failed to read variable MSinfo\n");
+    return ExitCode::eParamError;
+  }
+   
 ----
 
 **Python**
 [source, python]
 ----
-include::./python/system_log.py[tag=call_getMessageLog] 
+# get the device message log
+    msgLog = deviceControl.getMessageLog("MSinfo")
+     
 ----
 
 === Step 3: Parse and print the system log response 
@@ -137,12 +162,56 @@ Together with the knowledge that the array always contains 25 items of ErrStruct
 **C++**
 [source,c++]
 ----
-include::./cpp/system_log.cpp[tag=parse_response] 
+// Read message array, length of array is always 25 items (see MSinfo in PDF).
+  CoLaParameterReader reader(messagesResponse);
+  for (int i = 0; i < 25; i++) // Read 25 items
+  {
+    std::uint32_t errorId    = reader.readUDInt();
+    std::uint32_t errorState = reader.readUDInt();
+
+    // Read ErrTimeType struct members for FirstTime
+    std::uint16_t firstTime_PwrOnCount = reader.readUInt();
+    std::uint32_t firstTime_OpSecs     = reader.readUDInt();
+    std::uint32_t firstTime_TimeOccur  = reader.readUDInt();
+
+    // Read ErrTimeType struct members for LastTime
+    std::uint16_t lastTime_PwrOnCount = reader.readUInt();
+    std::uint32_t lastTime_OpSecs     = reader.readUDInt();
+    std::uint32_t lastTime_TimeOccur  = reader.readUDInt();
+
+    std::uint16_t numberOccurrences = reader.readUInt();
+    std::uint16_t errReserved       = reader.readUInt();
+    std::string   extInfo           = reader.readFlexString();
+
+    // Write all non-empty info messages to the console
+    if (errorId != 0)
+    {
+      std::printf("Info message [0x%032" PRIx32 "], extInfo: %s, number of occurrences: %" PRIu16 "\n",
+                  errorId,
+                  extInfo.c_str(),
+                  numberOccurrences);
+    }
+  }
+   
 ----
 **Python**
 [source,python]
 ----
-include::./python/system_log.py[tag=parse_response] 
+# print the message log
+    for error in msgLog:
+        print(f"ErrorId: {error['ErrorId']}")
+        print(f"ErrorState: {error['ErrorState']}")
+        print(f"FirstTime_PwrOnCnt: {error['FirstTime_PwrOnCnt']}")
+        print(f"FirstTime_OpSecs: {error['FirstTime_OpSecs']}")
+        print(f"FirstTime_TimeOccur: {error['FirstTime_TimeOccur']}")
+        print(f"LastTime_PwrOnCnt: {error['LastTime_PwrOnCnt']}")
+        print(f"LastTime_OpSecs: {error['LastTime_OpSecs']}")
+        print(f"LastTime_TimeOccur: {error['LastTime_TimeOccur']}")
+        print(f"NumberOccurance: {error['NumberOccurance']}")
+        print(f"ErrReserved: {error['ErrReserved']}")
+        print(f"ExtInfo: {error['ExtInfo'].decode('utf-8')}")
+        print("\n")
+     
 ----
 
 NOTE: It is important to read the values in the same order as they appear in the table! +
@@ -154,12 +223,15 @@ Finally we disconnect from the control channel.
 **C++**
 [source, c++]
 ----
-include::./cpp/system_log.cpp[tag=control_disconnect] 
+visionaryControl.close();
+   
 ----
 **Python**
 [source,python]
 ----
-include::./python/system_log.py[tag=control_disconnect] 
+# Close the connection to the device
+    deviceControl.close()
+     
 ----
 
 == Device Status
@@ -198,23 +270,34 @@ and <<Step 2: Build and send the read command>>. Make sure to adjust the variabl
 **C++**
 [source, c++]
 ----
-include::./cpp/device_state.cpp[tag=tempLvl_command] 
+// Read Temperature Level
+  CoLaCommand getTempLvl         = CoLaParameterWriter(CoLaCommandType::READ_VARIABLE, "TmpLvl").build();
+  CoLaCommand getTempLvlResponse = visionaryControl.sendCommand(getTempLvl);
+   
 ----
 
 [source, c++]
 ----
-include::./cpp/device_state.cpp[tag=opVoltage_command] 
+// Read operating voltage status
+  CoLaCommand getOpVol      = CoLaParameterWriter(CoLaCommandType::READ_VARIABLE, "OpVoltageStatus").build();
+  CoLaCommand opVolResponse = visionaryControl.sendCommand(getOpVol);
+   
 ----
 
 **Python**
 [source, python]
 ----
-include::./python/device_state.py[tag=tempLvl_command] 
+# Read temperature level
+    tmp_lvl_response = device_control.readVariable(b'TmpLvl')
+     
 ----
 
 [source, python]
 ----
-include::./python/device_state.py[tag=opVoltage_command] 
+# Read operating voltage status
+    op_voltage_status_response = device_control.readVariable(
+        b'OpVoltageStatus')
+     
 ----
 
 === Step 3: Read the response (UserType ThreeLevels)
@@ -232,21 +315,51 @@ NOTE: Different usertypes are defined in `usertypes.h` and `Usertypes.py`. If yo
 
 [source, c++]
 ----
-include::./cpp/device_state.cpp[tag=read_tempLvl] 
+if (getTempLvlResponse.getError() != CoLaError::OK)
+  {
+    std::printf("Failed to read Temperature Level\n");
+    return ExitCode::eParamError;
+  }
+  else
+  {
+    // returns Int enum of type ThreeLevels
+    std::uint8_t           tmpLvlEnum = CoLaParameterReader(getTempLvlResponse).readUSInt();
+    UserTypes::ThreeLevels tmpLvl     = UserTypes::ThreeLevels(tmpLvlEnum);
+    std::printf("Read Temperature Level = %s\n", tmpLvl.to_string().c_str());
+  }
+   
 ----
 [source, c++]
 ----
-include::./cpp/device_state.cpp[tag=read_opVoltage] 
+if (opVolResponse.getError() != CoLaError::OK)
+  {
+    std::printf("Failed to read Operating Voltage Status\n");
+    return ExitCode::eParamError;
+  }
+  else
+  {
+    // returns Int enum of type ThreeLevels
+    std::uint8_t           opVolEnum   = CoLaParameterReader(opVolResponse).readUSInt();
+    UserTypes::ThreeLevels opVolStatus = UserTypes::ThreeLevels(opVolEnum);
+    std::printf("Read Operating voltage status = %s\n", opVolStatus.to_string().c_str());
+  }
+   
 ----
 
 **Python**
 [source, python]
 ----
-include::./python/device_state.py[tag=read_tmpLvl] 
+tmp_lvl_enum = struct.unpack('>B', tmp_lvl_response)[0]
+    tmp_lvl = ThreeLevels(tmp_lvl_enum)
+    print(f"Read Temperature Level: {tmp_lvl.name}")
+     
 ----
 [source, python]
 ----
-include::./python/device_state.py[tag=read_opVoltage] 
+op_voltage_status_enum = struct.unpack('>B', op_voltage_status_response)[0]
+    op_voltage_status = ThreeLevels(op_voltage_status_enum)
+    print(f"Read operating voltage status: {op_voltage_status.name}")
+     
 ----
 
 === Final step: Disconnect
