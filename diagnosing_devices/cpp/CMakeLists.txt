@@ -26,19 +26,23 @@ set(VISIONARY_BASE_NAME sick_visionary_cpp_base)
 
 # sample code shared folder
 set(SHARED_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../../shared/cpp)
+set(SHARED_CPP_UTILS shared_cpp_utils)
 
 # device base interface, if not already added
 if (NOT TARGET sick_visionary_cpp_base)
   add_subdirectory(${VISIONARY_BASE_PATH} ${CMAKE_CURRENT_BINARY_DIR}/base)
 endif()
 
+# device shared interface, if not already added
+if (NOT TARGET shared_cpp_utils)
+  add_subdirectory(${SHARED_PATH} ${CMAKE_CURRENT_BINARY_DIR}/shared)
+endif()
+
 # system log example
 add_executable(system_log system_log.cpp)
-target_include_directories(system_log
-  PRIVATE
-    ${SHARED_PATH})
 target_link_libraries(system_log
-  ${VISIONARY_BASE_NAME})
+  ${VISIONARY_BASE_NAME}
+  ${SHARED_CPP_UTILS})
 
 # device state example
 add_executable(device_state device_state.cpp)
@@ -46,4 +50,5 @@ target_include_directories(device_state
   PRIVATE
     ${SHARED_PATH})
 target_link_libraries(device_state
-  ${VISIONARY_BASE_NAME})
+  ${VISIONARY_BASE_NAME}
+  ${SHARED_CPP_UTILS})

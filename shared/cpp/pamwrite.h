@@ -1,3 +1,8 @@
+//
+// Copyright (c) 2024 SICK AG, Waldkirch
+//
+// SPDX-License-Identifier: Unlicense
+
 #ifndef IMAGE_STREAMING_AND_STORING_PGMWRITE_H_INCLUDED
 #define IMAGE_STREAMING_AND_STORING_PGMWRITE_H_INCLUDED
 

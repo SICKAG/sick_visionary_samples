@@ -13,6 +13,7 @@
 #include <VisionaryControl.h>
 #include <VisionaryType.h>
 
+#include "DecodeError.h"
 #include "exitcodes.h"
 
 static ExitCode runSystemLog(visionary::VisionaryType visionaryType, const std::string& ipAddress)
@@ -68,9 +69,11 @@ static ExitCode runSystemLog(visionary::VisionaryType visionaryType, const std::
     // Write all non-empty info messages to the console
     if (errorId != 0)
     {
-      std::printf("Info message [0x%032" PRIx32 "], extInfo: %s, number of occurrences: %" PRIu16 "\n",
+      std::string errorDescription = decodeErrorCode(errorId, visionaryType.toString());
+      std::printf("Info message [0x%032" PRIx32 "], extInfo: %s, error description: %s, number of occurrences: %" PRIu16 "\n",
                   errorId,
                   extInfo.c_str(),
+                  errorDescription.c_str(),
                   numberOccurrences);
     }
   }

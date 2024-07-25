@@ -1,3 +1,8 @@
+//
+// Copyright (c) 2024 SICK AG, Waldkirch
+//
+// SPDX-License-Identifier: Unlicense
+
 #ifndef SHARED_CHECKCOLA_H_INCLUDED
 #define SHARED_CHECKCOLA_H_INCLUDED
 
