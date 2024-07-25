@@ -1,3 +1,10 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+#
+# Copyright (c) 2024 SICK AG, Waldkirch
+#
+# SPDX-License-Identifier: Unlicense
+
 # ERROR_DICT_T_MINI maps the subsystem-value and errorname-value to the error description as definded in V3SXX5_1_CX.cid.processed.xml
 ERROR_DICT_VISIONARY_T_MINI = {
     0: {

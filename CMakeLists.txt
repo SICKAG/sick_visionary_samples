@@ -6,7 +6,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(sick_visionary_samples
-        VERSION 1.0.0
+        VERSION 1.1.0
         DESCRIPTION "samples for Visionary devices"
         HOMEPAGE_URL "https://github.com/SICKAG/sick_visionary_samples"
         LANGUAGES CXX)

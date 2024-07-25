@@ -3,8 +3,28 @@
 This document provides a summary of all notable changes for the Visionary samples collection.
 For a detailed view of what was changed, please refer to the repository's commit history.
 
+== 1.1.0
 
-== Unreleased
+=== Changed
+
+=== Fixed
+
+=== Added
+
+* Adds a new static library called shared_cpp_utils created from shared/cpp
+* Adds DecodeError.cpp and .h to shared/cpp
+* Adds decoding of the error ID to diagnosing_devices/cpp/system_log.cpp sample (https://github.com/SICKAG/sick_visionary_samples/issues/2)
+
+=== Known Issues
+
+=== Compatibility
+
+=== Supported devices
+
+* Visionary-T Mini CX versions 1.x, 2.x
+* Visionary-S CX
+
+== 1.0.0
 
 === Changed
 
@@ -19,7 +39,6 @@ For a detailed view of what was changed, please refer to the repository's commit
 === Supported devices
 
 * Visionary-T Mini CX versions 1.x, 2.x
-* Visionary-T CX, AG, (DT only streaming functionality)
 * Visionary-S CX
 
 

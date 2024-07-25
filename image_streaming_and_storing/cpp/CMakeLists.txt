@@ -26,10 +26,16 @@ set(VISIONARY_BASE_NAME sick_visionary_cpp_base)
 
 # sample code shared folder
 set(SHARED_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../../shared/cpp)
+set(SHARED_CPP_UTILS shared_cpp_utils)
 
 # device base interface, if not already added
 if (NOT TARGET sick_visionary_cpp_base)
   add_subdirectory(${VISIONARY_BASE_PATH} ${CMAKE_CURRENT_BINARY_DIR}/base)
+endif()
+
+# device shared interface, if not already added
+if (NOT TARGET shared_cpp_utils)
+  add_subdirectory(${SHARED_PATH} ${CMAKE_CURRENT_BINARY_DIR}/shared)
 endif()
 
 if (NOT TARGET spng_miniz)
@@ -42,11 +48,10 @@ add_executable(continuous_streaming
   ${SHARED_PATH}/framewrite.cpp
   continuous_streaming.cpp
   )
-target_include_directories(continuous_streaming
-  PRIVATE
-    ${SHARED_PATH})
+
 target_link_libraries(continuous_streaming
   ${VISIONARY_BASE_NAME}
+  ${SHARED_CPP_UTILS}
   spng_miniz)
 
 add_executable(snapshots
@@ -55,11 +60,9 @@ add_executable(snapshots
   ${SHARED_PATH}/framewrite.cpp
   snapshots.cpp
   )
-target_include_directories(snapshots
-  PRIVATE
-    ${SHARED_PATH})
 target_link_libraries(snapshots
   ${VISIONARY_BASE_NAME}
+  ${SHARED_CPP_UTILS}
   spng_miniz)
 
 add_executable(external_trigger
@@ -71,9 +74,7 @@ add_executable(external_trigger
   ${SHARED_PATH}/framewrite.cpp
   external_trigger.cpp
   )
-target_include_directories(external_trigger
-  PRIVATE
-    ${SHARED_PATH})
 target_link_libraries(external_trigger
   ${VISIONARY_BASE_NAME}
+  ${SHARED_CPP_UTILS}
   spng_miniz)

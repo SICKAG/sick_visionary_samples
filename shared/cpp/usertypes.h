@@ -1,3 +1,8 @@
+//
+// Copyright (c) 2024 SICK AG, Waldkirch
+//
+// SPDX-License-Identifier: Unlicense
+
 #ifndef USERTYPES_H_INCLUDED
 #define USERTYPES_H_INCLUDED
 #include <string>
@@ -17,41 +22,8 @@ public:
     GOOD    = 3
   };
 
-  ThreeLevels(int value)
-  {
-    switch (value)
-    {
-      case 0:
-        level = ThreeLevelsEnum::INVALID;
-        break;
-      case 1:
-        level = ThreeLevelsEnum::ERROR;
-        break;
-      case 2:
-        level = ThreeLevelsEnum::WARNING;
-        break;
-      case 3:
-        level = ThreeLevelsEnum::GOOD;
-        break;
-    }
-  }
-
-  std::string to_string() const
-  {
-    switch (level)
-    {
-      case ThreeLevelsEnum::INVALID:
-        return "INVALID";
-      case ThreeLevelsEnum::ERROR:
-        return "ERROR";
-      case ThreeLevelsEnum::WARNING:
-        return "WARNING";
-      case ThreeLevelsEnum::GOOD:
-        return "GOOD";
-      default:
-        return "UNKNOWN";
-    }
-  }
+  ThreeLevels(int value);
+  std::string to_string() const;
 
 private:
   ThreeLevelsEnum level;
@@ -67,44 +39,12 @@ public:
     FOUR_BY_FOUR = 2,
   };
 
-  BinningOption(int value)
-  {
-    switch (value)
-    {
-      case 0:
-        level = BinningOptionEnum::NONE;
-        break;
-      case 1:
-        level = BinningOptionEnum::TWO_BY_TWO;
-        break;
-      case 2:
-        level = BinningOptionEnum::FOUR_BY_FOUR;
-        break;
-    }
-  }
+  BinningOption(int value);
+  operator int() const;
+  std::string to_str() const;
 
-  operator int() const
-    {
-        return static_cast<int>(level);
-    }
-
-  std::string to_str() const
-  {
-    switch (level)
-    {
-      case BinningOptionEnum::NONE:
-        return "NONE";
-      case BinningOptionEnum::TWO_BY_TWO:
-        return "TWO_BY_TWO";
-      case BinningOptionEnum::FOUR_BY_FOUR:
-        return "FOUR_BY_FOUR";
-      default:
-        return "UNKNOWN";
-    }
-  }
-
-  private:
-    BinningOptionEnum level;
+private:
+  BinningOptionEnum level;
 };
 
 } // namespace UserTypes
