@@ -7,10 +7,10 @@
 #include <memory>
 #include <sstream>
 
-#include "CoLaParameterReader.h"
-#include "CoLaParameterWriter.h"
-#include <VisionaryControl.h>
-#include <VisionaryType.h>
+#include <sick_visionary_cpp_base/CoLaParameterReader.h>
+#include <sick_visionary_cpp_base/CoLaParameterWriter.h>
+#include <sick_visionary_cpp_base/VisionaryControl.h>
+#include <sick_visionary_cpp_base/VisionaryType.h>
 
 #include "exitcodes.h"
 
@@ -218,10 +218,10 @@ int main(int argc, char* argv[])
 
   if (showHelpAndExit)
   {
-    std::cout << argv[0] << " [option]*" << std::endl;
-    std::cout << "where option is one of" << std::endl;
-    std::cout << "-h           show this help and exit" << std::endl;
-    std::cout << "-i<IP>       connect to the device with IP address <IP>; default is 192.168.1.10" << std::endl;
+    std::cout << argv[0] << " [option]*" << "\n";
+    std::cout << "where option is one of" << "\n";
+    std::cout << "-h           show this help and exit" << "\n";
+    std::cout << "-i<IP>       connect to the device with IP address <IP>; default is 192.168.1.10" << "\n";
     std::cout << "-d<device_type>    visionary product type; default is '" << visionaryType.toString() << "'\n";
     std::cout << "-r<restore values> Restores the permanetly changed value to its default value: "
               << (restoreValues ? "true" : "false") << "'\n";
@@ -231,7 +231,7 @@ int main(int argc, char* argv[])
 
   exitCode = runSavePermanentlyDemo(visionaryType, deviceIpAddr, restoreValues);
 
-  std::cout << "exit code " << static_cast<int>(exitCode) << std::endl;
+  std::cout << "exit code " << static_cast<int>(exitCode) << "\n";
 
   return static_cast<int>(exitCode);
 }

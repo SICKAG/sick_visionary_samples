@@ -3,6 +3,32 @@
 This document provides a summary of all notable changes for the Visionary samples collection.
 For a detailed view of what was changed, please refer to the repository's commit history.
 
+== 1.2.0
+
+=== Changed
+
+* updated minimum required cmake version to 3.24 (FILE_SET, WARNING_AS_ERROR feature)
+* use scoped includes and namespaced target of sick_visionary_cpp_base
+* Bring TCP and UDP Python samples more in line
+
+=== Fixed
+
+* FetchContent usage for botan (deprecated FetchContent_Populate)
+* TcpSocket timeout not captured in linux (fixed in sick_visionary_cpp_base 1.1.0)
+
+=== Added
+
+* Parsing of UDP packages in C++ streaming samples
+
+=== Known Issues
+
+=== Compatibility
+
+=== Supported devices
+
+* Visionary-T Mini CX versions 2.x, 3.x
+* Visionary-S CX versions 6.x
+
 == 1.1.0
 
 === Changed
@@ -40,5 +66,3 @@ For a detailed view of what was changed, please refer to the repository's commit
 
 * Visionary-T Mini CX versions 1.x, 2.x
 * Visionary-S CX
-
-

@@ -39,7 +39,7 @@ def writeMeta(visionary_type: str, data: 'Data', inifilename: str, mapdescs: lis
         config.set('frame', 'width', str(data.xmlParser.imageWidth))
         config.set('frame', 'height', str(data.xmlParser.imageHeight))
         # end::frame_geometry[]
-        
+
         # tag::intrinsics[]
         config.add_section('intrinsics')
         config.set('intrinsics', 'cx', str(data.xmlParser.cx))
@@ -77,7 +77,7 @@ def writeMeta(visionary_type: str, data: 'Data', inifilename: str, mapdescs: lis
 
 
 def writeFrame(visionary_type: str, data: Data, file_prefix: str = ""):
-    
+
     frame_number = data.depthmap.frameNumber
     width = data.cameraParams.width
     height = data.cameraParams.height

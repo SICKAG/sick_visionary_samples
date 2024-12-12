@@ -7,9 +7,9 @@
 
 #include <stdexcept>
 
-#include <CoLaError.h>
-#include <CoLaParameterReader.h>
-#include <CoLaParameterWriter.h>
+#include <sick_visionary_cpp_base/CoLaError.h>
+#include <sick_visionary_cpp_base/CoLaParameterReader.h>
+#include <sick_visionary_cpp_base/CoLaParameterWriter.h>
 
 #include "checkcola.h"
 

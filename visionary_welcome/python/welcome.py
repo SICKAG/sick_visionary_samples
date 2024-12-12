@@ -70,8 +70,8 @@ def runWelcomeDemo(ip_address: str, cola_protocol: str, control_port: int, devic
                     writeFrame(device_type, sensor_data,
                             os.path.join(img_dir, ""))
                     print("=== Converting image to pointcloud")
-                    
-                    # Non optimized 
+
+                    # Non optimized
                     start_time = time.time()
                     world_coordinates, dist_data = convertToPointCloud(sensor_data.depthmap.distance,
                                                                     sensor_data.depthmap.intensity,
@@ -80,7 +80,7 @@ def runWelcomeDemo(ip_address: str, cola_protocol: str, control_port: int, devic
                     end_time = time.time()
                     execution_time = end_time - start_time
                     print(f"convertToPointCloud took: {execution_time:.3}s")
-                    
+
                     # Optimized
                     is_stereo = True if device_type == "Visionary-S" else False
                     start_time = time.time()
@@ -90,7 +90,7 @@ def runWelcomeDemo(ip_address: str, cola_protocol: str, control_port: int, devic
                     end_time = time.time()
                     execution_time = end_time - start_time
                     print(f"convertToPointCloudOptimized took: {execution_time:.3}s")
-                    
+
                     # Write output of the non optimized function to PLY
                     writePointCloudToPLY(os.path.join(
                         pcl_dir, "world_coordinates{}.ply".format(frame_number)), world_coordinates)
@@ -108,10 +108,10 @@ def runWelcomeDemo(ip_address: str, cola_protocol: str, control_port: int, devic
     # change one frontend setting and take another image
     if device_type == "Visionary-T Mini":
         device_control.setFramePeriodUs(60000)
-        print("\nSet frame period to 60000 μs.\n")
+        print("\nSet frame period to 60000 micro seconds.\n")
     elif device_type == "Visionary-S":
         device_control.setIntegrationTimeUs(3000)
-        print("\nSet integration time to 3000 μs.\n")
+        print("\nSet integration time to 3000 micor seconds.\n")
 
     # Logout after configuration
     device_control.logout()
@@ -131,8 +131,8 @@ def runWelcomeDemo(ip_address: str, cola_protocol: str, control_port: int, devic
                     writeFrame(device_type, sensor_data,
                             os.path.join(img_dir, ""))
                     print("=== Converting image to pointcloud")
-                    
-                    # Non optimized 
+
+                    # Non optimized
                     start_time = time.time()
                     world_coordinates, dist_data = convertToPointCloud(sensor_data.depthmap.distance,
                                                                     sensor_data.depthmap.intensity,
@@ -141,7 +141,7 @@ def runWelcomeDemo(ip_address: str, cola_protocol: str, control_port: int, devic
                     end_time = time.time()
                     execution_time = end_time - start_time
                     print(f"convertToPointCloud took: {execution_time:.3}s")
-                    
+
                     # Optimized
                     is_stereo = True if device_type == "Visionary-S" else False
                     start_time = time.time()
@@ -151,7 +151,7 @@ def runWelcomeDemo(ip_address: str, cola_protocol: str, control_port: int, devic
                     end_time = time.time()
                     execution_time = end_time - start_time
                     print(f"convertToPointCloudOptimized took: {execution_time:.3}s")
-                    
+
                     # Write output of the non optimized function to PLY
                     writePointCloudToPLY(os.path.join(
                         pcl_dir, "world_coordinates{}.ply".format(frame_number)), world_coordinates)

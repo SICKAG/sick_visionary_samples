@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include <VisionaryControl.h>
+#include <sick_visionary_cpp_base/VisionaryControl.h>
 #include <memory>
 #include <string>
 
@@ -16,7 +16,8 @@ bool setBlobUdpReceiverPort(std::shared_ptr<VisionaryControl> visionaryControl, 
 bool setBlobUdpControlPort(std::shared_ptr<VisionaryControl> visionaryControl, std::uint16_t controlPort);
 bool setBlobTcpPort(std::shared_ptr<VisionaryControl> visionaryControl, std::uint16_t tcpPort);
 bool setBlobUdpMaxPacketSize(std::shared_ptr<VisionaryControl> visionaryControl, std::uint16_t maxPacketSize);
-bool setBlobUdpIdleTimeBetweenPackets(std::shared_ptr<VisionaryControl> visionaryControl, std::uint16_t timeBetweenPackets);
+bool setBlobUdpIdleTimeBetweenPackets(std::shared_ptr<VisionaryControl> visionaryControl,
+                                      std::uint16_t                     timeBetweenPackets);
 bool setBlobUdpReceiverIP(std::shared_ptr<VisionaryControl> visionaryControl, const std::string& receiverIP);
 bool setBlobUdpHeartbeatInterval(std::shared_ptr<VisionaryControl> visionaryControl, std::uint32_t heartBeatInterval);
 bool setBlobUdpHeaderEnabled(std::shared_ptr<VisionaryControl> visionaryControl, bool headerEnabled);

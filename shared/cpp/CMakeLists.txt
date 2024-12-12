@@ -3,10 +3,15 @@
 #
 # SPDX-License-Identifier: Unlicense
 
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.24)
 
 # Set the project name
 project(shared_cpp_utils)
+
+### Configuration
+if(WIN32)
+  set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON) # If building as shared lib on Windows
+endif()
 
 set(SOURCES
     BlobServerConfig.cpp
@@ -18,6 +23,7 @@ set(SOURCES
     pamwrite.cpp
     pngwrite.cpp
     usertypes.cpp
+    UdpParsing.cpp
 )
 
 # Create a static library with the above sources
@@ -28,10 +34,10 @@ set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 11)
 
 # root folder and name of the visionary_cpp_base module
 set(VISIONARY_BASE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../../base/cpp)
-set(VISIONARY_BASE_NAME sick_visionary_cpp_base)
+set(VISIONARY_BASE_NAME sick_visionary_cpp_base::sick_visionary_cpp_base)
 
 # device base interface, if not already added
-if (NOT TARGET sick_visionary_cpp_base)
+if (NOT TARGET ${VISIONARY_BASE_NAME})
   add_subdirectory(${VISIONARY_BASE_PATH} ${CMAKE_CURRENT_BINARY_DIR}/base)
 endif()
 
@@ -44,4 +50,3 @@ target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(${PROJECT_NAME}
   ${VISIONARY_BASE_NAME}
   spng_miniz)
-

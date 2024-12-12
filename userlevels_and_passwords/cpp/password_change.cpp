@@ -17,11 +17,11 @@
 #include "exitcodes.h"
 
 #include "CryptoUtils.h"
-#include <AuthenticationSecure.h>
-#include <CoLaParameterReader.h>
-#include <CoLaParameterWriter.h>
-#include <VisionaryControl.h>
-#include <VisionaryType.h>
+#include <sick_visionary_cpp_base/AuthenticationSecure.h>
+#include <sick_visionary_cpp_base/CoLaParameterReader.h>
+#include <sick_visionary_cpp_base/CoLaParameterWriter.h>
+#include <sick_visionary_cpp_base/VisionaryControl.h>
+#include <sick_visionary_cpp_base/VisionaryType.h>
 
 /**
  * @brief Get the challenge from the device
@@ -150,10 +150,10 @@ std::vector<uint8_t> createEncryptedMessage(std::string          UserLevelName,
  * @return True if the password was changed successfully, false otherwise
  */
 bool changePasswordForUserLevelSecure(std::shared_ptr<visionary::VisionaryControl> visionaryControl,
-                                    std::string                                  userLevel,
-                                    std::string                                  oldPassword,
-                                    std::string                                  newPassword,
-                                    visionary::ProtocolType                      SUL)
+                                      std::string                                  userLevel,
+                                      std::string                                  oldPassword,
+                                      std::string                                  newPassword,
+                                      visionary::ProtocolType                      SUL)
 {
   using namespace visionary;
   // tag::change_password_command[]
@@ -161,8 +161,11 @@ bool changePasswordForUserLevelSecure(std::shared_ptr<visionary::VisionaryContro
   ChallengeRequest challengeRequest = getChallengeFromDevice(visionaryControl, SUL);
 
   // create an encrypted message from the old password, the user Level, the new password and the old salt
-  auto encryptedMessage = createEncryptedMessage(
-    userLevel, oldPassword, newPassword, std::vector<uint8_t>(challengeRequest.salt.begin(), challengeRequest.salt.end()));
+  auto encryptedMessage =
+    createEncryptedMessage(userLevel,
+                           oldPassword,
+                           newPassword,
+                           std::vector<uint8_t>(challengeRequest.salt.begin(), challengeRequest.salt.end()));
 
   // Build the COLA command for changing the password
   CoLaParameterWriter getChangePasswordBuilder =
@@ -180,7 +183,7 @@ bool changePasswordForUserLevelSecure(std::shared_ptr<visionary::VisionaryContro
   // send the cola command
   CoLaCommand getChangePasswordResponse = visionaryControl->sendCommand(getChangePasswordCommand);
   // 0 == SUCCESS see ChangePassword documentation
-  uint8_t     result                       = CoLaParameterReader(getChangePasswordResponse).readUSInt(); // 0 == SUCCESS
+  uint8_t result = CoLaParameterReader(getChangePasswordResponse).readUSInt(); // 0 == SUCCESS
   if (getChangePasswordResponse.getError() == CoLaError::OK && result == 0)
   {
     std::fprintf(
@@ -218,7 +221,7 @@ bool changePasswordForUserLevelLegacy(std::shared_ptr<visionary::VisionaryContro
 
   CoLaCommand getChangePasswordResponse = visionaryControl->sendCommand(getChangePasswordCommand);
   // 1 == SUCCESS see SetPassword method documentation
-  uint8_t     result                    = CoLaParameterReader(getChangePasswordResponse).readUSInt(); 
+  uint8_t result = CoLaParameterReader(getChangePasswordResponse).readUSInt();
   if (getChangePasswordResponse.getError() == CoLaError::OK && result == 1)
   {
     std::fprintf(
@@ -267,10 +270,10 @@ static ExitCode runChangePasswordDemo(visionary::VisionaryType visionaryType, co
   using namespace visionary;
   ExitCode exitcode;
 
-  const std::string userLevel = "Service";
+  const std::string userLevel   = "Service";
   const std::string oldPassword = "CUST_SERV";
-  const std::string newPassword     = "TEST";
-  
+  const std::string newPassword = "TEST";
+
   // tag::control_connection[]
   std::shared_ptr<VisionaryControl> visionaryControl = std::make_shared<VisionaryControl>(visionaryType);
   if (!visionaryControl->open(ipAddress))
@@ -279,7 +282,7 @@ static ExitCode runChangePasswordDemo(visionary::VisionaryType visionaryType, co
     std::fprintf(stderr, "Failed to open control connection to device.\n");
     return ExitCode::eCommunicationError;
   }
- 
+
   // tag::login_old_password[]
   if (!visionaryControl->login(IAuthentication::UserLevel::SERVICE, oldPassword))
   // end::login_old_password[]
@@ -395,13 +398,13 @@ int main(int argc, char* argv[])
 
   if (showHelpAndExit)
   {
-    std::cout << argv[0] << " [option]*" << std::endl;
-    std::cout << "where option is one of" << std::endl;
-    std::cout << "-h          show this help and exit" << std::endl;
+    std::cout << argv[0] << " [option]*" << "\n";
+    std::cout << "where option is one of" << "\n";
+    std::cout << "-h          show this help and exit" << "\n";
     std::cout << "-i<IP>      connect to the device with IP address <IP>; "
                  "default is "
-              << deviceIpAddr << std::endl;
-    std::cout << "-t<typename> visionary product type; default is '" << visionaryType.toString() << std::endl;
+              << deviceIpAddr << "\n";
+    std::cout << "-t<typename> visionary product type; default is '" << visionaryType.toString() << "\n";
 
     std::cout << "Visionary product types:\n";
     for (const auto& name : visionary::VisionaryType::getNames())
@@ -414,7 +417,7 @@ int main(int argc, char* argv[])
 
   exitCode = runChangePasswordDemo(visionaryType, deviceIpAddr);
 
-  std::cout << "exit code " << static_cast<int>(exitCode) << std::endl;
+  std::cout << "exit code " << static_cast<int>(exitCode) << "\n";
 
   return static_cast<int>(exitCode);
 }

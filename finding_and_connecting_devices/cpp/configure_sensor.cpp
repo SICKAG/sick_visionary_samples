@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-#include <VisionaryAutoIP.h>
+#include <sick_visionary_cpp_base/VisionaryAutoIP.h>
 
 #include "exitcodes.h"
 
@@ -36,11 +36,11 @@ static ExitCode runAssignDemo(const std::string&     destinationMac,
 
   if (successful)
   {
-    std::cout << "Successfully assigned ip address" << std::endl;
+    std::cout << "Successfully assigned ip address" << "\n";
     return ExitCode::eOk;
   }
 
-  std::cout << "Ip address could not be successfully assigned" << std::endl;
+  std::cout << "Ip address could not be successfully assigned" << "\n";
   return ExitCode::eCommunicationError;
 }
 
@@ -141,21 +141,21 @@ int main(int argc, char* argv[])
 
   if (showHelpAndExit)
   {
-    std::cout << argv[0] << " [option]*" << std::endl;
-    std::cout << "where options are" << std::endl;
-    std::cout << "-h            show this help and exit" << std::endl;
-    std::cout << "-o<MAC>       mac address of the device to assign" << std::endl;
-    std::cout << "-i<IP>        ip address of the interface on which the scan is performed." << std::endl
-              << "              It is expected to be in a CIDR manner, " << std::endl
-              << "              i.e., using ip address and the length of network prefix seperated by /. " << std::endl
-              << "              For example, -i192.168.1.100/24" << std::endl
-              << "              Note the range of prefix is [0, 32]. " << std::endl;
-    std::cout << "-c<version>   cola version either  -c1 (COLA1) or -c2 (COLA2)" << std::endl;
-    std::cout << "-n<IP>        new ip address of the device" << std::endl;
-    std::cout << "-m<mask>      network mask of the device" << std::endl;
-    std::cout << "-g<IP>        gateway of the device" << std::endl;
-    std::cout << "-d            enable dhcp" << std::endl;
-    std::cout << "-t<timeout>   broadcast timeout in milliseconds; default is " << DEF_BROADCAST_TIMEOUT << std::endl;
+    std::cout << argv[0] << " [option]*" << "\n";
+    std::cout << "where options are" << "\n";
+    std::cout << "-h            show this help and exit" << "\n";
+    std::cout << "-o<MAC>       mac address of the device to assign" << "\n";
+    std::cout << "-i<IP>        ip address of the interface on which the scan is performed." << "\n"
+              << "              It is expected to be in a CIDR manner, " << "\n"
+              << "              i.e., using ip address and the length of network prefix seperated by /. " << "\n"
+              << "              For example, -i192.168.1.100/24" << "\n"
+              << "              Note the range of prefix is [0, 32]. " << "\n";
+    std::cout << "-c<version>   cola version either  -c1 (COLA1) or -c2 (COLA2)" << "\n";
+    std::cout << "-n<IP>        new ip address of the device" << "\n";
+    std::cout << "-m<mask>      network mask of the device" << "\n";
+    std::cout << "-g<IP>        gateway of the device" << "\n";
+    std::cout << "-d            enable dhcp" << "\n";
+    std::cout << "-t<timeout>   broadcast timeout in milliseconds; default is " << DEF_BROADCAST_TIMEOUT << "\n";
 
     return static_cast<int>(exitCode);
   }
@@ -163,7 +163,7 @@ int main(int argc, char* argv[])
   exitCode = runAssignDemo(
     destinationMac, colaVersion, interfaceIp, static_cast<uint8_t>(prefix), ipAddr, ipMask, ipGateway, dhcp, timeoutMs);
 
-  std::cout << "exit code " << static_cast<int>(exitCode) << std::endl;
+  std::cout << "exit code " << static_cast<int>(exitCode) << "\n";
 
   return static_cast<int>(exitCode);
 }

@@ -24,11 +24,11 @@ def getChallenge(device_control: Control, sul_version: int, user_level: int) -> 
 
     Args:
       device_control (Control): An instance of the Control class for device control.
-      sul_version (int): Secure User Level Version, either 1 or 2. 
+      sul_version (int): Secure User Level Version, either 1 or 2.
       user_level (int): The user level. This is used to generate the challenge if the SUL version is not 1.
 
     Returns:
-      Tuple[Tuple[int, ...], Tuple[int, ...]]: A tuple containing the challenge and salt tuples. 
+      Tuple[Tuple[int, ...], Tuple[int, ...]]: A tuple containing the challenge and salt tuples.
       The salt is an empty tuple if the SUL version is 1.
     """
     challenge = ()
@@ -118,7 +118,7 @@ def changePasswordForUserLevel(device_control: Control, user_level: UserLevel, o
     user_level (UserLevel): The user level for which the password needs to be changed.
     old_password (str): The old password.
     new_password (str): The new password.
-    device_type (str): The type of the device. 
+    device_type (str): The type of the device.
 
     Returns:
     bool: True if the password change was successful, False otherwise.

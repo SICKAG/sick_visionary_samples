@@ -34,7 +34,7 @@ class BinningOption
 public:
   enum BinningOptionEnum
   {
-    NONE = 0,
+    NONE         = 0,
     TWO_BY_TWO   = 1,
     FOUR_BY_FOUR = 2,
   };

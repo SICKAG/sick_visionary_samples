@@ -8,8 +8,8 @@
 
 #include <string>
 
-#include <VisionaryData.h>
-#include <VisionaryType.h>
+#include <sick_visionary_cpp_base/VisionaryData.h>
+#include <sick_visionary_cpp_base/VisionaryType.h>
 
 /// Write a complete frame including meta data to file.
 ///

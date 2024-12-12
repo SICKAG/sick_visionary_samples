@@ -36,23 +36,18 @@ The samples in this repository have been tested with the following platforms:
 
 | Windows
 | Visual Studio / Build Tools
-| 2022 (MSVC = 14.x)
+| 2022 (MSVC = 19.3x)
 |
 
 | Windows
 | gcc (mingw64)
-| 13.2.0 (>= 8.1)
+| 14.2.0 (>= 11.1)
 |
 
 | Linux inside WSL2
 | gcc
-| 11.4.0 (>= 8.1)
+| 11.4.0 (>= 11.1)
 | finding_and_connecting_devices (AutoIP) and image_streaming_and_storing (UDP) will not work with default WSL2 configuration (NAT)
-
-| Linux
-| gcc
-| >= 8.1
-|
 
 |===
 
@@ -69,18 +64,18 @@ The samples in this repository have been tested with the following platforms:
 | Visionary-T Mini CX (pass:[V3S105-1AAAAAA])
 | link:https://www.sick.com/de/en/catalog/products/machine-vision-and-identification/machine-vision/visionary-t-mini/v3s105-1aaaaaa/p/p665983[1112649]
 | 3D time-of-flight camera
-| ✔ 2.1.0
+| 2.1.0 & ✔ 3.0.0
 
 | Visionary-S CX (pass:[V3S102-1AAAAAA], pass:[V3S102<area>-1AABAAB])
 | link:https://www.sick.com/de/en/catalog/products/machine-vision-and-identification/machine-vision/visionary-s/v3s102-1aaaaaa/p/p602149[1090184] link:https://www.sick.com/de/en/catalog/products/machine-vision-and-identification/machine-vision/visionary-s/v3s102-1aabaab/p/p651629[1090185]
 | 3D structured light stereovision camera with RGB data
-| ✔ 6.0.0
+| 6.0.0 & ✔ 6.5.0
 |===
 
 
 == Getting started
 
-Ensure you have a recent version of https://cmake.org/install/[cmake] footnote:[minimum required version >= 3.16]
+Ensure you have a recent version of https://cmake.org/install/[cmake] footnote:[minimum required version >= 3.24]
 and a compiler available on your machine's system.
 If you are working on windows with a recent version of VisualStudiofootnote:[>= 2017, or buildtools with MSVC = 14.x],
 take care to have a CMake version supporting your version of Visual Studio.
@@ -131,10 +126,15 @@ footnote:[Also, other ways are possible]:
 
 * `cmake -B build` optionally also specify other options like -G for custom generator
 
+[NOTE]
+====
+If you run into WARNING_AS_ERROR issue with some compiler (which is enabled per default) just use the cmake override ```--compile-no-warning-as-error``` when configuring the project.
+====
+
 Now you can build the files with the chosen build-system you've generated them for,
 for instance, open the solution in VisualStudio or run make/ninja.
 
-* `cmake --build build` 
+* `cmake --build build`
 
 To run the C++ welcome demo, follow these steps:
 

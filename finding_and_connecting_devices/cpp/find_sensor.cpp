@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-#include <VisionaryAutoIP.h>
+#include <sick_visionary_cpp_base/VisionaryAutoIP.h>
 
 #include "exitcodes.h"
 
@@ -28,16 +28,16 @@ static ExitCode runScanDemo(const std::string& hostIp, std::uint8_t prefixLength
   // print device info for every found device
   for (auto it : deviceList)
   {
-    std::cout << "Device name:  " << it.deviceIdent << std::endl
-              << "SerialNumber: " << it.serialNumber << std::endl
-              << "MAC Address:  " << it.macAddress << std::endl
-              << "IP Address:   " << it.ipAddress << std::endl
-              << "Network Mask: " << it.networkMask << std::endl
-              << "CoLa port:    " << it.colaPort << std::endl
-              << "CoLa version: " << static_cast<uint16_t>(it.colaVersion) << std::endl;
+    std::cout << "Device name:  " << it.deviceIdent << "\n"
+              << "SerialNumber: " << it.serialNumber << "\n"
+              << "MAC Address:  " << it.macAddress << "\n"
+              << "IP Address:   " << it.ipAddress << "\n"
+              << "Network Mask: " << it.networkMask << "\n"
+              << "CoLa port:    " << it.colaPort << "\n"
+              << "CoLa version: " << static_cast<uint16_t>(it.colaVersion) << "\n";
   }
 
-  std::cout << '\n' << "Number of found devices: " << deviceList.size() << std::endl;
+  std::cout << '\n' << "Number of found devices: " << deviceList.size() << "\n";
   // end::ip_scan[]
 
   return ExitCode::eOk;
@@ -92,21 +92,21 @@ int main(int argc, char* argv[])
 
   if (showHelpAndExit)
   {
-    std::cout << argv[0] << " [option]*" << std::endl;
-    std::cout << "where option is one of" << std::endl;
-    std::cout << "-h          show this help and exit" << std::endl;
-    std::cout << "-i<IP>      ip address of the interface on which the scan is performed." << std::endl
-              << "            It is expected to be in a CIDR manner, " << std::endl
-              << "            i.e., using ip address and the length of network prefix seperated by /. " << std::endl
-              << "            For example, -i192.168.1.100/24" << std::endl
-              << "            Note the range of prefix is [0, 32]. " << std::endl;
+    std::cout << argv[0] << " [option]*" << "\n";
+    std::cout << "where option is one of" << "\n";
+    std::cout << "-h          show this help and exit" << "\n";
+    std::cout << "-i<IP>      ip address of the interface on which the scan is performed." << "\n"
+              << "            It is expected to be in a CIDR manner, " << "\n"
+              << "            i.e., using ip address and the length of network prefix seperated by /. " << "\n"
+              << "            For example, -i192.168.1.100/24" << "\n"
+              << "            Note the range of prefix is [0, 32]. " << "\n";
 
     return static_cast<int>(exitCode);
   }
 
   exitCode = runScanDemo(ip, static_cast<uint8_t>(prefix));
 
-  std::cout << "exit code " << static_cast<int>(exitCode) << std::endl;
+  std::cout << "exit code " << static_cast<int>(exitCode) << "\n";
 
   return static_cast<int>(exitCode);
 }

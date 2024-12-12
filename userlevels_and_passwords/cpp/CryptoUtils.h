@@ -12,12 +12,14 @@
  * @param input The input string
  * @return The SHA-256 hash
  */
-std::vector<uint8_t> calcSHA256Hash(const std::string &input) {
+std::vector<uint8_t> calcSHA256Hash(const std::string& input)
+{
   // Create a SHA-256 hash object
   auto hash = Botan::HashFunction::create("SHA-256");
 
-  if (!hash) {
-    std::cerr << "Error creating SHA-256 hash function." << std::endl;
+  if (!hash)
+  {
+    std::cerr << "Error creating SHA-256 hash function." << "\n";
     return std::vector<uint8_t>();
   }
 
@@ -39,20 +41,24 @@ std::vector<uint8_t> calcSHA256Hash(const std::string &input) {
  * @param padding Whether to use PKCS7 padding
  * @return The encrypted data
  */
-std::vector<uint8_t> encryptWithAES128(const std::vector<uint8_t> &key,
-                                       const std::vector<uint8_t> &iv,
-                                       std::vector<uint8_t> &data, bool padding = true) {
-
+std::vector<uint8_t> encryptWithAES128(const std::vector<uint8_t>& key,
+                                       const std::vector<uint8_t>& iv,
+                                       std::vector<uint8_t>&       data,
+                                       bool                        padding = true)
+{
   // Creating AES-128 cipher
   std::unique_ptr<Botan::BlockCipher> aes_cipher(Botan::BlockCipher::create("AES-128"));
 
   std::unique_ptr<Botan::Cipher_Mode> cbc_cipher;
   // Creating CBC mode with padding when SUL1 and without padding when SUL2
-  if(padding){
+  if (padding)
+  {
     cbc_cipher = std::unique_ptr<Botan::Cipher_Mode>(Botan::get_cipher_mode("AES-128/CBC/PKCS7", Botan::ENCRYPTION));
   }
-  else {
-    cbc_cipher = std::unique_ptr<Botan::Cipher_Mode>(Botan::get_cipher_mode("AES-128/CBC/NoPadding", Botan::ENCRYPTION));
+  else
+  {
+    cbc_cipher =
+      std::unique_ptr<Botan::Cipher_Mode>(Botan::get_cipher_mode("AES-128/CBC/NoPadding", Botan::ENCRYPTION));
   }
   // Setting the key and IV
   cbc_cipher->set_key(key);
@@ -70,12 +76,13 @@ std::vector<uint8_t> encryptWithAES128(const std::vector<uint8_t> &key,
  * @param message The message to calculate the HMAC for
  * @return The HMAC
  */
-std::vector<uint8_t> calculateHMAC(const std::vector<uint8_t> &key, const std::vector<uint8_t> &message) {
-
+std::vector<uint8_t> calculateHMAC(const std::vector<uint8_t>& key, const std::vector<uint8_t>& message)
+{
   // Create an HMAC object with SHA-256 as the hash function
   std::unique_ptr<Botan::MessageAuthenticationCode> hmac = Botan::MessageAuthenticationCode::create("HMAC(SHA-256)");
 
-  if (!hmac) {
+  if (!hmac)
+  {
     throw std::runtime_error("HMAC creation failed");
   }
   // Set the HMAC key
@@ -93,11 +100,13 @@ std::vector<uint8_t> calculateHMAC(const std::vector<uint8_t> &key, const std::v
 
 /**
  * @brief Append a string to a vector of bytes
-  * @param bytes The vector to append to
-  * @param str The string to append
-  */
-void appendStringtoBytes(std::vector<uint8_t> &bytes, std::string str) {
-  for (size_t i = 0; i < str.size(); ++i) {
+ * @param bytes The vector to append to
+ * @param str The string to append
+ */
+void appendStringtoBytes(std::vector<uint8_t>& bytes, std::string str)
+{
+  for (size_t i = 0; i < str.size(); ++i)
+  {
     bytes.insert(bytes.end(), static_cast<uint8_t>(str[i]));
   }
 }
@@ -107,16 +116,18 @@ void appendStringtoBytes(std::vector<uint8_t> &bytes, std::string str) {
  * @param numBytes The number of bytes to generate
  * @return A vector of random bytes
  */
-std::vector<uint8_t> generateRandomBytes(uint16_t numBytes) {
+std::vector<uint8_t> generateRandomBytes(uint16_t numBytes)
+{
   // create a vector with random bytes
-  std::random_device rd;
-  std::mt19937 gen(rd());
+  std::random_device                 rd;
+  std::mt19937                       gen(rd());
   std::uniform_int_distribution<int> distribution(0, 255);
 
   std::vector<uint8_t> randByteVector(numBytes);
-  for (size_t i = 0; i < numBytes; ++i) {
+  for (size_t i = 0; i < numBytes; ++i)
+  {
     randByteVector[i] = distribution(gen);
   }
   return randByteVector;
 }
-#endif //SICK_VISIONARY_SAMPLES_CRYPTOUTILS_H
+#endif // SICK_VISIONARY_SAMPLES_CRYPTOUTILS_H

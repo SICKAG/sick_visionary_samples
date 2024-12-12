@@ -9,7 +9,7 @@
 #include <cstdint>
 #include <string>
 
-#include <VisionaryControl.h>
+#include <sick_visionary_cpp_base/VisionaryControl.h>
 
 namespace visionary {
 
@@ -129,7 +129,9 @@ InputFunctionType readDioFunction(std::shared_ptr<visionary::VisionaryControl> r
 ///
 /// \note Not all sensor models support all input function types. If an unsupported input function type is set, a CoLa
 /// error will occur.
-void writeDioFunction(std::shared_ptr<visionary::VisionaryControl> rVisionaryControl, DInPort port, InputFunctionType type);
+void writeDioFunction(std::shared_ptr<visionary::VisionaryControl> rVisionaryControl,
+                      DInPort                                      port,
+                      InputFunctionType                            type);
 
 /// Read the current polarity of a digital input port.
 ///
@@ -172,7 +174,9 @@ IOFunctionType readDioFunction(std::shared_ptr<visionary::VisionaryControl> rVis
 /// \param[in]  type The IO function type to set.
 ///
 /// \throws std::runtime_error if the IO function type could not be set or a communication/protocol error occurred.
-void writeDioFunction(std::shared_ptr<visionary::VisionaryControl> rVisionaryControl, DioPort port, IOFunctionType type);
+void writeDioFunction(std::shared_ptr<visionary::VisionaryControl> rVisionaryControl,
+                      DioPort                                      port,
+                      IOFunctionType                               type);
 
 /// Read the current polarity of a digital IO port.
 ///

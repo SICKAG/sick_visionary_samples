@@ -8,7 +8,7 @@
 
 #include <string>
 
-#include <CoLaCommand.h>
+#include <sick_visionary_cpp_base/CoLaCommand.h>
 
 namespace visionary {
 

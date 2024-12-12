@@ -25,7 +25,7 @@ def runLoginLogoutDemo(ip_address: str, cola_protocol: str, control_port: int):
     sysTemperatureWarningMargin = struct.unpack(
         '>h', sysTemperatureWarningMarginResponse)[0]
     print(
-        f"Current SysTemperatureWarningMargin: {sysTemperatureWarningMargin}°C")
+        f"Current SysTemperatureWarningMargin: {sysTemperatureWarningMargin} degree Celsius")
     # end::read_variable[]
 
     # This section demonstrates what would happen if there is an attempt to write a variable which needs SERVICE access
@@ -40,7 +40,7 @@ def runLoginLogoutDemo(ip_address: str, cola_protocol: str, control_port: int):
             '>h', sysTemperatureWarningMargin))
         print("Successfully written new value to variable SysTemperatureWarningMargin")
         print(
-            f"Current SysTemperatureWarningMargin: {sysTemperatureWarningMargin}°C")
+            f"Current SysTemperatureWarningMargin: {sysTemperatureWarningMargin} degree Celsius")
         # end::write_variable[]
     except RuntimeError as e:
         print(e)
@@ -58,7 +58,7 @@ def runLoginLogoutDemo(ip_address: str, cola_protocol: str, control_port: int):
         '>h', sysTemperatureWarningMargin))
     print("Successfully written new value to variable SysTemperatureWarningMargin")
     print(
-        f"Current SysTemperatureWarningMargin: {sysTemperatureWarningMargin}°C")
+        f"Current SysTemperatureWarningMargin: {sysTemperatureWarningMargin} degree Celsius")
 
     # Finally restore the original value for SysTemperatureWarningMargin variable
     sysTemperatureWarningMargin += 1
@@ -67,7 +67,7 @@ def runLoginLogoutDemo(ip_address: str, cola_protocol: str, control_port: int):
         '>h', sysTemperatureWarningMargin))
     print("Restoring SysTemperatureWarningMargin to initial value")
     print(
-        f"Current SysTemperatureWarningMargin: {sysTemperatureWarningMargin}°C\n")
+        f"Current SysTemperatureWarningMargin: {sysTemperatureWarningMargin} degree Celsius\n")
 
     # tag::logout_and_disconnect[]
     deviceControl.logout()

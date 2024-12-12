@@ -9,10 +9,10 @@
 #include <sstream>
 #include <string>
 
-#include <CoLaParameterReader.h>
-#include <CoLaParameterWriter.h>
-#include <VisionaryControl.h>
-#include <VisionaryType.h>
+#include <sick_visionary_cpp_base/CoLaParameterReader.h>
+#include <sick_visionary_cpp_base/CoLaParameterWriter.h>
+#include <sick_visionary_cpp_base/VisionaryControl.h>
+#include <sick_visionary_cpp_base/VisionaryType.h>
 
 #include "exitcodes.h"
 #include "usertypes.h"
@@ -62,7 +62,7 @@ static ExitCode runSystemLog(visionary::VisionaryType visionaryType, const std::
   else
   {
     std::int16_t sysTemp = CoLaParameterReader(sysTempResponse).readInt();
-    std::printf("Read System temperature = %.1f°C\n", sysTemp / 10.0);
+    std::printf("Read System temperature = %.1f degree Celsius\n", sysTemp / 10.0);
   }
 
   // tag::opVoltage_command[]
@@ -141,11 +141,11 @@ int main(int argc, char* argv[])
 
   if (showHelpAndExit)
   {
-    std::cout << argv[0] << " [option]*" << std::endl;
-    std::cout << "where option is one of" << std::endl;
-    std::cout << "-h           show this help and exit" << std::endl;
-    std::cout << "-i<IP>       connect to the device with IP address <IP>; default is 192.168.1.10" << std::endl;
-    std::cout << "-d<device type> visionary product type; default is '" << visionaryType.toString() << std::endl;
+    std::cout << argv[0] << " [option]*" << "\n";
+    std::cout << "where option is one of" << "\n";
+    std::cout << "-h           show this help and exit" << "\n";
+    std::cout << "-i<IP>       connect to the device with IP address <IP>; default is 192.168.1.10" << "\n";
+    std::cout << "-d<device type> visionary product type; default is '" << visionaryType.toString() << "\n";
 
     std::cout << "Visionary product types:\n";
     for (const auto& name : visionary::VisionaryType::getNames())
@@ -158,7 +158,7 @@ int main(int argc, char* argv[])
 
   exitCode = runSystemLog(visionaryType, deviceIpAddr);
 
-  std::cout << "exit code " << static_cast<int>(exitCode) << std::endl;
+  std::cout << "exit code " << static_cast<int>(exitCode) << "\n";
 
   return static_cast<int>(exitCode);
 }

@@ -11,10 +11,10 @@
 #include <iostream>
 #include <sstream>
 
-#include <CoLaParameterReader.h>
-#include <CoLaParameterWriter.h>
-#include <VisionaryControl.h>
-#include <VisionaryType.h>
+#include <sick_visionary_cpp_base/CoLaParameterReader.h>
+#include <sick_visionary_cpp_base/CoLaParameterWriter.h>
+#include <sick_visionary_cpp_base/VisionaryControl.h>
+#include <sick_visionary_cpp_base/VisionaryType.h>
 
 #include "exitcodes.h"
 
@@ -48,7 +48,7 @@ static ExitCode runDemo(visionary::VisionaryType visionaryType, const std::strin
     return ExitCode::eParamError;
   }
   std::int16_t originalWarnMargin = CoLaParameterReader(getWarnMarginResponse).readInt();
-  std::fprintf(stdout, "Current SysTemperatureWarningMargin: %d°C\n", originalWarnMargin);
+  std::fprintf(stdout, "Current SysTemperatureWarningMargin: %d degree Celsius\n", originalWarnMargin);
 
   // This section demonstrates what would happen if there is an attempt to write a variable which needs SERVICE access
   // level - but without any login. It is expected, that a CoLaError is reported, actually VARIABLE_WRITE_ACCESS_DENIED
@@ -110,7 +110,7 @@ static ExitCode runDemo(visionary::VisionaryType visionaryType, const std::strin
   else
   {
     std::fprintf(
-      stdout, "Updated SysTemperatureWarningMargin: %d°C\n", CoLaParameterReader(getWarnMarginResponse).readInt());
+      stdout, "Updated SysTemperatureWarningMargin: %d degree Celsius\n", CoLaParameterReader(getWarnMarginResponse).readInt());
   }
 
   // Finally restore the original value for SysTemperatureWarningMargin variable
@@ -126,7 +126,7 @@ static ExitCode runDemo(visionary::VisionaryType visionaryType, const std::strin
   else
   {
     std::fprintf(stdout,
-                 "Successfully written original value (%d°C) to variable SysTemperatureWarningMargin\n",
+                 "Successfully written original value (%d degree Celsius) to variable SysTemperatureWarningMargin\n",
                  originalWarnMargin);
   }
 
@@ -191,11 +191,11 @@ int main(int argc, char* argv[])
 
   if (showHelpAndExit)
   {
-    std::cout << argv[0] << " [option]*" << std::endl;
-    std::cout << "where option is one of" << std::endl;
-    std::cout << "-h          show this help and exit" << std::endl;
-    std::cout << "-i<IP>      connect to the device with IP address <IP>; default is " << deviceIpAddr << std::endl;
-    std::cout << "-t<typename> visionary product type; default is '" << visionaryType.toString() << std::endl;
+    std::cout << argv[0] << " [option]*" << "\n";
+    std::cout << "where option is one of" << "\n";
+    std::cout << "-h          show this help and exit" << "\n";
+    std::cout << "-i<IP>      connect to the device with IP address <IP>; default is " << deviceIpAddr << "\n";
+    std::cout << "-t<typename> visionary product type; default is '" << visionaryType.toString() << "\n";
 
     std::cout << "Visionary product types:\n";
     for (const auto& name : visionary::VisionaryType::getNames())
@@ -208,7 +208,7 @@ int main(int argc, char* argv[])
 
   exitCode = runDemo(visionaryType, deviceIpAddr);
 
-  std::cout << "exit code " << static_cast<int>(exitCode) << std::endl;
+  std::cout << "exit code " << static_cast<int>(exitCode) << "\n";
 
   return static_cast<int>(exitCode);
 }
