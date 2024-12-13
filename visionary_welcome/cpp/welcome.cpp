@@ -15,12 +15,12 @@
 #include <chrono>
 #include <thread>
 
-#include <CoLaParameterWriter.h>
-#include <FrameGrabber.h>
-#include <PointCloudPlyWriter.h>
-#include <PointXYZ.h>
-#include <VisionaryControl.h>
-#include <VisionaryType.h>
+#include <sick_visionary_cpp_base/CoLaParameterWriter.h>
+#include <sick_visionary_cpp_base/FrameGrabber.h>
+#include <sick_visionary_cpp_base/PointCloudPlyWriter.h>
+#include <sick_visionary_cpp_base/PointXYZ.h>
+#include <sick_visionary_cpp_base/VisionaryControl.h>
+#include <sick_visionary_cpp_base/VisionaryType.h>
 
 #include "exitcodes.h"
 #include "framewrite.h"
@@ -112,7 +112,7 @@ static ExitCode runWelcomeDemo(visionary::VisionaryType visionaryType, const std
     CoLaCommand setIntegrationTimeUsCommand =
       CoLaParameterWriter(CoLaCommandType::WRITE_VARIABLE, "integrationTimeUs").parameterUDInt(3000).build();
     auto setIntegrationTimeUsResponse = visionaryControl.sendCommand(setIntegrationTimeUsCommand);
-    std::cout << "Set integration time to 3000 μs." << std::endl;
+    std::cout << "Set integration time to 3000 micro seconds." << "\n";
   }
   else if (visionaryType.toString() == "Visionary-T_Mini")
   {
@@ -120,7 +120,7 @@ static ExitCode runWelcomeDemo(visionary::VisionaryType visionaryType, const std
     CoLaCommand setFramePeriodUsCommand =
       CoLaParameterWriter(CoLaCommandType::WRITE_VARIABLE, "framePeriodUs").parameterUDInt(60000).build();
     auto setFramePeriodUsResponse = visionaryControl.sendCommand(setFramePeriodUsCommand);
-    std::cout << "Set frame period to 60000 μs." << std::endl;
+    std::cout << "Set frame period to 60000 micro seconds." << "\n";
   }
 
   if (!visionaryControl.logout())

@@ -7,9 +7,9 @@
 #include <memory>
 #include <vector>
 
-#include <VisionaryData.h>
-#include <VisionarySData.h>
-#include <VisionaryTMiniData.h>
+#include <sick_visionary_cpp_base/VisionaryData.h>
+#include <sick_visionary_cpp_base/VisionarySData.h>
+#include <sick_visionary_cpp_base/VisionaryTMiniData.h>
 
 #include "framewrite.h"
 #include "pamwrite.h"
@@ -134,8 +134,8 @@ void writeFrame(visionary::VisionaryType        visionaryType,
   const std::uint32_t frameNumber = rDataHandler.getFrameNum();
 
   // Get the width and height of the images
-  const  std::uint32_t width  = rDataHandler.getWidth();
-  const  std::uint32_t height = rDataHandler.getHeight();
+  const std::uint32_t width  = rDataHandler.getWidth();
+  const std::uint32_t height = rDataHandler.getHeight();
 
   const std::string framePrefix = std::to_string(frameNumber);
 

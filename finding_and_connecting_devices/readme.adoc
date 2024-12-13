@@ -93,7 +93,7 @@ To actually perform a find_sensor the mandatory parameters -i need to be provide
 
 **Step 1**: Instantiate VisionaryAutoIP
 
-The VisionaryAutoIP class provides IP address relevant features. For example, discovery of Visionary camera devices and IP configuration of a specific device in the network.  
+The VisionaryAutoIP class provides IP address relevant features. For example, discovery of Visionary camera devices and IP configuration of a specific device in the network.
 Instantiate VisionaryAutoIP with a host IP address, i.e., the IP address of the interface on which the Visionary camera device discovery is performed, and the prefix length of the network mask.
 
 **C++**
@@ -124,16 +124,16 @@ Once Visionary camera devices are discovered, concrete device information can be
   // print device info for every found device
   for (auto it : deviceList)
   {
-    std::cout << "Device name:  " << it.deviceIdent << std::endl
-              << "SerialNumber: " << it.serialNumber << std::endl
-              << "MAC Address:  " << it.macAddress << std::endl
-              << "IP Address:   " << it.ipAddress << std::endl
-              << "Network Mask: " << it.networkMask << std::endl
-              << "CoLa port:    " << it.colaPort << std::endl
-              << "CoLa version: " << static_cast<uint16_t>(it.colaVersion) << std::endl;
+    std::cout << "Device name:  " << it.deviceIdent << "\n"
+              << "SerialNumber: " << it.serialNumber << "\n"
+              << "MAC Address:  " << it.macAddress << "\n"
+              << "IP Address:   " << it.ipAddress << "\n"
+              << "Network Mask: " << it.networkMask << "\n"
+              << "CoLa port:    " << it.colaPort << "\n"
+              << "CoLa version: " << static_cast<uint16_t>(it.colaVersion) << "\n";
   }
 
-  std::cout << '\n' << "Number of found devices: " << deviceList.size() << std::endl;
+  std::cout << '\n' << "Number of found devices: " << deviceList.size() << "\n";
   
 ----
 
@@ -184,7 +184,7 @@ To actually configure an ip address the mandatory parameters -o, -c, -i, -n and 
 
 **Step 1**: Instantiate VisionaryAutoIP
 
-The VisionaryAutoIP class provides IP address relevant features. For example, discovery of Visionary camera devices and IP configuration of a specific device in the network.  
+The VisionaryAutoIP class provides IP address relevant features. For example, discovery of Visionary camera devices and IP configuration of a specific device in the network.
 Instantiate VisionaryAutoIP with a host IP address, i.e., the IP address of the interface on which the Visionary camera device discovery is performed, and the prefix length of the network mask.
 
 **C++**
@@ -245,7 +245,7 @@ using namespace visionary;
 ----
 
 NOTE: Run the python script from the repository root with the following command:
-      *python3 -m finding_and_connecting_devices.python.hello_sensor -iDEVICEIP -tDEVICETYPE*. 
+      *python3 -m finding_and_connecting_devices.python.hello_sensor -iDEVICEIP -tDEVICETYPE*.
       Change DEVICEIP and DEVICETYPE to match your device.
 
 **Python**
@@ -290,5 +290,5 @@ In python we call the `close()` method.
 [source,python]
 ----
 deviceControl.close()
-     
+    
 ----

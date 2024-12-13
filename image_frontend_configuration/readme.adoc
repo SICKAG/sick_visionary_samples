@@ -25,7 +25,7 @@ The standard procedure to modify these frontend settings involves the exchange o
 A CoLa command is made up of a `type`, a `name`, and any number of parameters. The name and the parameters that have to be used for a specific command is specified in the respective xref:HOW_TO_COLA_COMMANDS.adoc#_cola_telegram_listing[telegram listing] for the device.
 
 The following sections demonstrate how to configure the frontend settings of Visionary-S CX (see <<Visionary-S specific frontend configuration>>) and the Visionary-T Mini CX
-(see <<Visionary-T Mini specific frontend configuration>>). 
+(see <<Visionary-T Mini specific frontend configuration>>).
 
 == How to run the samples
 
@@ -96,7 +96,7 @@ The Visionary-S CX device offers a number of different interfaces to configure t
 * **Stereo settings**: acquisitionModeStereo, integrationTimeUs, ...
 * **Filter settings**: enCartFilter, cartFilterBounds, ...
 
-This example demonstrates: 
+This example demonstrates:
 
 . How to set the **acquisition mode**.
 . How to set the **region of interest** (ROI).
@@ -107,7 +107,7 @@ This example demonstrates:
 
 The first step is to create a camera control object specifing the right VisionaryType. The VisionaryControl class provides an interface for controlling a Visionary Camera, including managing the connection, logging in and out, and controlling data acquisition.
 
-IMPORTANT: Before configuring any frontend settings, a connection to the device's control channel must be established, and the user must be logged in with the required user level. 
+IMPORTANT: Before configuring any frontend settings, a connection to the device's control channel must be established, and the user must be logged in with the required user level.
 
 
 **C++**
@@ -200,7 +200,7 @@ Looking at the variable overview for `autoExposureROI` we notice a few things:
 - The *Write-Access* is for *AuthorizedClient, Service*
 - The data is a `Struct` of four elements.
 - The four elements are of type UDInt.
- 
+
 image:images/autoExposureROI.PNG[]
 
 To configure the Region of Interest (ROI), we need to follow these steps:
@@ -257,7 +257,7 @@ These algorithms can be invoked in a parameterized manner using the `TriggerAuto
 Looking at the method overview for `TriggerAutoExposureParameterized` we notice a few things:
 
 - *Invocation-Access* is granted for *AuthorizedClient, Service*
-- The method takes two parameters: 
+- The method takes two parameters:
     . The first is of type `UInt` and specifies the array length
     . The second is of type `USInt` and specifies the int-enum value for the auto exposure algorithm (see table below)
 
@@ -267,7 +267,7 @@ To demonstrate how the method can be used we:
 
 . create a for loop with three iterations
 . each iteration we change the auto exposure parameter
-. build the CoLa command by first specifying the parameter length and then adding a second parameter for the actual auto exposure algorithm 
+. build the CoLa command by first specifying the parameter length and then adding a second parameter for the actual auto exposure algorithm
 . send the CoLa command for the method invocation
 
 Additionally we read the variable `integrationTimeUs` **before and after** the method invocation to show how the auto exposure algorithm effects the integration time.
@@ -450,12 +450,12 @@ The Visionary-T Mini CX device offers a number of different interfaces to config
 * **Filter settings**: enDepthMask, enableDistanceFilter, ...
 * **Time synchronisation**: timeSynchronizationEnabled, ...
 
-This example demonstrates: 
+This example demonstrates:
 
 . How to configure the Binning Option.
 . How to read and set the Frame Period.
 
-=== 1. Connect and login 
+=== 1. Connect and login
 
 IMPORTANT: Before configuring any device settings, ensure to complete <<1. Connect to the device and login>>. Typically, modifying device variables necessitates a login with the appropriate user level.
 
@@ -616,7 +616,7 @@ In the previous chapter you learned how to set device specific parameters. Chang
 
 === Save permanently: The writeEeprom method
 
-The writeEeprom method writes all parameters to the device memory. 
+The writeEeprom method writes all parameters to the device memory.
 In Python you can simply call the `writeEeprom` method of the `Control`-class.
 In C++ you can use the provided `writeEeprom` function. Under the hood both are creating a CoLa command which invokes the method `mEEwriteall`.
 
@@ -656,7 +656,7 @@ int writeEeprom(std::shared_ptr<visionary::VisionaryControl> visionaryControl)
 
 To restore changed parameters you have two options:
 
-. Set the variable to the previous value and call `writeEeprom()` 
+. Set the variable to the previous value and call `writeEeprom()`
 . Or call the `loadFactoryDefaults()` method and call `writeEeprom()`
 
 image:images/loadFactoryDefaults.PNG[]

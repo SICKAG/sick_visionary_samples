@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.24)
 
 include(FetchContent)
 macro(UseBotan VERSION MODULES)
@@ -14,14 +14,8 @@ macro(UseBotan VERSION MODULES)
     GIT_TAG release-${VERSION}
     GIT_SHALLOW TRUE
   )
-  # Check if population has already been performed
-  FetchContent_GetProperties(botan_upstream)
-  if(NOT botan_upstream_POPULATED)
-    # Fetch the content using previously declared details
-    message("-- fetch botan_upstream")
-    FetchContent_Populate(botan_upstream)
-    message("-- fetch botan_upstream - done")
-
+  FetchContent_MakeAvailable(botan_upstream)
+  if(NOT EXISTS ${botan_upstream_SOURCE_DIR}/CMakeLists.txt)
     # Do custom configuration and preparations for cmake
     string(TOLOWER ${CMAKE_CXX_COMPILER_ID} BOTAN_COMPILER_ID)
     if (BOTAN_COMPILER_ID STREQUAL "gnu")
@@ -49,7 +43,7 @@ macro(UseBotan VERSION MODULES)
       endif()
 
     file(WRITE ${botan_upstream_SOURCE_DIR}/CMakeLists.txt
-      "cmake_minimum_required(VERSION 3.16)\n"
+      "cmake_minimum_required(VERSION 3.24)\n"
       "\n"
       "project(botan)\n"
       "\n"

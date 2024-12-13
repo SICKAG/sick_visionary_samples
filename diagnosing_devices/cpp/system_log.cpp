@@ -8,10 +8,10 @@
 #include <iostream>
 #include <sstream>
 
-#include <CoLaParameterReader.h>
-#include <CoLaParameterWriter.h>
-#include <VisionaryControl.h>
-#include <VisionaryType.h>
+#include <sick_visionary_cpp_base/CoLaParameterReader.h>
+#include <sick_visionary_cpp_base/CoLaParameterWriter.h>
+#include <sick_visionary_cpp_base/VisionaryControl.h>
+#include <sick_visionary_cpp_base/VisionaryType.h>
 
 #include "DecodeError.h"
 #include "exitcodes.h"
@@ -70,7 +70,8 @@ static ExitCode runSystemLog(visionary::VisionaryType visionaryType, const std::
     if (errorId != 0)
     {
       std::string errorDescription = decodeErrorCode(errorId, visionaryType.toString());
-      std::printf("Info message [0x%032" PRIx32 "], extInfo: %s, error description: %s, number of occurrences: %" PRIu16 "\n",
+      std::printf("Info message [0x%032" PRIx32 "], extInfo: %s, error description: %s, number of occurrences: %" PRIu16
+                  "\n",
                   errorId,
                   extInfo.c_str(),
                   errorDescription.c_str(),
@@ -137,11 +138,11 @@ int main(int argc, char* argv[])
 
   if (showHelpAndExit)
   {
-    std::cout << argv[0] << " [option]*" << std::endl;
-    std::cout << "where option is one of" << std::endl;
-    std::cout << "-h           show this help and exit" << std::endl;
-    std::cout << "-i<IP>       connect to the device with IP address <IP>; default is 192.168.1.10" << std::endl;
-    std::cout << "-d<device type> visionary product type; default is '" << visionaryType.toString() << std::endl;
+    std::cout << argv[0] << " [option]*" << "\n";
+    std::cout << "where option is one of" << "\n";
+    std::cout << "-h           show this help and exit" << "\n";
+    std::cout << "-i<IP>       connect to the device with IP address <IP>; default is 192.168.1.10" << "\n";
+    std::cout << "-d<device type> visionary product type; default is '" << visionaryType.toString() << "\n";
 
     std::cout << "Visionary product types:\n";
     for (const auto& name : visionary::VisionaryType::getNames())
@@ -154,7 +155,7 @@ int main(int argc, char* argv[])
 
   exitCode = runSystemLog(visionaryType, deviceIpAddr);
 
-  std::cout << "exit code " << static_cast<int>(exitCode) << std::endl;
+  std::cout << "exit code " << static_cast<int>(exitCode) << "\n";
 
   return static_cast<int>(exitCode);
 }

@@ -6,14 +6,14 @@
 
 == CoLa Telegram Listing
 
-The Visionary-S and Visionary-T Mini cameras use the CoLa protocol to send and receive control or streaming commands aka telegrams. 
+The Visionary-S and Visionary-T Mini cameras use the CoLa protocol to send and receive control or streaming commands aka telegrams.
 The available CoLa commands for the control channel of each device can be found in:
 
 - link:https://cdn.sick.com/media/docs/4/44/844/telegram_listing_visionary_s_cx_telegram_listing_en_im0106844.pdf[Visionary-S Telegram Listing]
 - link:https://cdn.sick.com/media/docs/7/47/847/telegram_listing_visionary_t_mini_cx_telegram_listing_en_im0106847.pdf[Visionary-T Mini Telegram Listing]
 
 The following section explains how to read and write CoLa commands/responses in `Python` and `C++`.
-Most CoLa commands follow a simple structure and their implementation is therefore easy. 
+Most CoLa commands follow a simple structure and their implementation is therefore easy.
 In addition to the simple datatypes like int or float, there are more complex datatypes which we`ll explain in <<Special Cases>>.
 
 == Prerequisites
@@ -23,7 +23,7 @@ Before you can read and write a CoLa command you need to make sure you know:
 . the correct name of the variable/method
 . the data/return type of the variable/method
 
-=== Communication Name 
+=== Communication Name
 
 === Datatypes
 
@@ -31,7 +31,7 @@ Before you can read and write a CoLa command you need to make sure you know:
 |===
 | DataType | Description | Range | Python Struct Format Character | C++ Read/Write Methods
 
-| Bool | boolean | True(1), False(0) | `?` | `readBool()`/`parameterBool()` 
+| Bool | boolean | True(1), False(0) | `?` | `readBool()`/`parameterBool()`
 | USInt | unsigned short (8 bit) | 0..255 | `B` | `readUSInt()`/`parameterUSInt()`
 | UInt | unsigned int (16 bit) | 0..65535 | `H` | `readUInt()`/`parameterUInt()`
 | UDInt | unsigned double int (32 bit) | 0..4294967295 | `I` | `readUDInt()`/`parameterUDInt()`
@@ -64,9 +64,9 @@ image:image_frontend_configuration/images/framePeriodUs.PNG[]
 
 === Read framePeriodUs in Python
 
-To read the variable we use the `readVariable()` method of the `Control-Class` specifing the correct variable name. The `Control-Class` provides you with the necessary read and write functions which simplyfies reading and writing variables to one function call and a `struct.pack/struct.unpack` call. 
+To read the variable we use the `readVariable()` method of the `Control-Class` specifing the correct variable name. The `Control-Class` provides you with the necessary read and write functions which simplyfies reading and writing variables to one function call and a `struct.pack/struct.unpack` call.
 
-**1.** First we call `readVariable()` entering the variable name as a string in binary format. Notice the `b` before the string of the variable name. The response will be in binary format. 
+**1.** First we call `readVariable()` entering the variable name as a string in binary format. Notice the `b` before the string of the variable name. The response will be in binary format.
 [source, python]
 ----
 visionary_control = Control(ip_address, CoLa_protocol, control_port)
@@ -82,8 +82,8 @@ framePeriodUs = struct.unpack('>I', response)[0]
 
 === Read framePeriodUs in C++
 
-To read the variable we make use of the link:base/cpp/src/CoLaParameterReader.h[ ControlParameterReader Class]. 
-This class provides read methods (see Step 3) for the various datatypes. See the last column in <<Datatypes>>. 
+To read the variable we make use of the link:base/cpp/src/CoLaParameterReader.h[ ControlParameterReader Class].
+This class provides read methods (see Step 3) for the various datatypes. See the last column in <<Datatypes>>.
 
 [NOTE]
 ====
@@ -108,14 +108,14 @@ CoLaCommand getFramePeriodUsCommand = CoLaParameterWriter(CoLaCommandType::READ_
 CoLaCommand getFramePeriodUsResponse = visionaryControl.sendCommand(getFramePeriodUsCommand);
 ----
 
-**3.** The final step is parsing the response with the suitable read-method. 
+**3.** The final step is parsing the response with the suitable read-method.
 In this case `readUDInt()`.
 [source, c++]
 ----
 std::uint32_t FramePeriodUs = CoLaParameterReader(getFramePeriodUsResponse).readUDInt();
 ----
 
-== Example: Write CoLa Commands 
+== Example: Write CoLa Commands
 
 We'll explain how to write a CoLa command with the varibale `integrationTimeUs`.
 
@@ -130,11 +130,11 @@ image:image_frontend_configuration/images/integrationTimeUs.PNG[]
 
 === Write integrationTimeUs in Python
 
-To write the variable we use the `writeVariable()` method of the `Control-Class` specifing the correct variable name. The `Control-Class` provides you with the necessary read and write functions which simplifies reading and writing variables to one function call and a `struct.pack/struct.unpack` call. 
+To write the variable we use the `writeVariable()` method of the `Control-Class` specifing the correct variable name. The `Control-Class` provides you with the necessary read and write functions which simplifies reading and writing variables to one function call and a `struct.pack/struct.unpack` call.
 
-**1.** First we call `writeVariable()` with two parameters. First we enter the variable name as a string in binary format. Notice the `b` before the string of the variable name. 
+**1.** First we call `writeVariable()` with two parameters. First we enter the variable name as a string in binary format. Notice the `b` before the string of the variable name.
 The second parameter is entered in big-endian binary format using struct.pack.
-`>` specifies big-endian and `I` specifies the format character for UDInt (see <<Datatypes>>).  
+`>` specifies big-endian and `I` specifies the format character for UDInt (see <<Datatypes>>).
 
 [source, python]
 ----
@@ -144,8 +144,8 @@ visionary_control.writeVariable(b'integrationTimeUs', struct.pack('>I', 3000))
 
 === Write integrationTimeUs in C++
 
-To write the variable we make use of the link:base/cpp/src/CoLaParameterWriter.h[ ControlParameterWriter Class]. 
-This class provides read methods (see Step 3) for the various datatypes. See the last column in <<Datatypes>>. 
+To write the variable we make use of the link:base/cpp/src/CoLaParameterWriter.h[ ControlParameterWriter Class].
+This class provides read methods (see Step 3) for the various datatypes. See the last column in <<Datatypes>>.
 
 [NOTE]
 ====
@@ -157,7 +157,7 @@ VisionaryControl visionaryControl(visionaryType);
 ----
 ====
 
-**1.** Create the CoLa command specifing the command type WRITE_VARIABLE and the variable name `integrationTimeUs`. Add the value to the `CoLaCommand` using the suitable `parameterUDInt` as specified in <<Datatypes>>. 
+**1.** Create the CoLa command specifing the command type WRITE_VARIABLE and the variable name `integrationTimeUs`. Add the value to the `CoLaCommand` using the suitable `parameterUDInt` as specified in <<Datatypes>>.
 Build the command using `build()`.
 [source, c++]
 ----
@@ -199,7 +199,7 @@ There are a few important things to note here:
 
 ==== Python
 
-**1.** First we call `readVariable()` entering the communication name of the variable as a string in binary format. Notice the `b` before the string of the variable's communication name. The response will be in binary format. 
+**1.** First we call `readVariable()` entering the communication name of the variable as a string in binary format. Notice the `b` before the string of the variable's communication name. The response will be in binary format.
 [source, python]
 ----
 visionary_control = Control(ip_address, CoLa_protocol, control_port)
@@ -327,7 +327,7 @@ CoLaParameterReader reader(messagesResponse);
 
 === Reading a FlexArray (Invoke method with FlexArray)
 
-NOTE: You can easily differentiate between an `Array` and a `FlexArray` by looking at the length. 
+NOTE: You can easily differentiate between an `Array` and a `FlexArray` by looking at the length.
 If the length is a single digit like 16, then it's a normal Array.
 If the length is a range like 0..16, then it's a FlexArray.
 
@@ -340,7 +340,7 @@ image:image_frontend_configuration/images/triggerautoexposureparameter.PNG[]
 Looking at the method overview for `TriggerAutoExposureParameterized` we notice a few things:
 
 - *Invocation-Access* is granted for *AuthorizedClient, Service*
-- The method takes two parameters: 
+- The method takes two parameters:
     . The first is of type UInt and specifies the **array length**
     . The second is of type `USInt` and specifies the **int-enum value** for the auto exposure algorithm (see table below)
 
@@ -364,9 +364,9 @@ for i in range(3):
 
 ==== C++
 
-**1.** Build the CoLa command specifing the command type `METHOD_INVOCATION` 
+**1.** Build the CoLa command specifing the command type `METHOD_INVOCATION`
 and the variable name `TriggerAutoExposureParameterized`.
-With each method invocation you need to specify two parameters, the length and the auto exposure enum. 
+With each method invocation you need to specify two parameters, the length and the auto exposure enum.
 [source, c++]
 ----
  for (uint8_t autoType = 0; autoType < 3;

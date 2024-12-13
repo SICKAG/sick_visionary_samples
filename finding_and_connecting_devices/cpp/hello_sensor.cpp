@@ -6,8 +6,8 @@
 #include <iostream>
 #include <sstream>
 
-#include <VisionaryControl.h>
-#include <VisionaryType.h>
+#include <sick_visionary_cpp_base/VisionaryControl.h>
+#include <sick_visionary_cpp_base/VisionaryType.h>
 
 #include "exitcodes.h"
 
@@ -40,8 +40,8 @@ int main(int argc, char* argv[])
   std::string              deviceIpAddr("192.168.1.10");
   visionary::VisionaryType visionaryType(visionary::VisionaryType::eVisionaryTMini);
 
-  bool showHelpAndExit   = false;
-  ExitCode exitCode = ExitCode::eOk;
+  bool     showHelpAndExit = false;
+  ExitCode exitCode        = ExitCode::eOk;
 
   for (int i = 1; i < argc; ++i)
   {
@@ -85,11 +85,11 @@ int main(int argc, char* argv[])
 
   if (showHelpAndExit)
   {
-    std::cout << argv[0] << " [option]*" << std::endl;
-    std::cout << "where option is one of" << std::endl;
-    std::cout << "-h           show this help and exit" << std::endl;
-    std::cout << "-i<IP>       connect to the device with IP address <IP>; default is 192.168.1.10" << std::endl;
-    std::cout << "-t<typename> visionary product type; default is '" << visionaryType.toString() << std::endl;
+    std::cout << argv[0] << " [option]*" << "\n";
+    std::cout << "where option is one of" << "\n";
+    std::cout << "-h           show this help and exit" << "\n";
+    std::cout << "-i<IP>       connect to the device with IP address <IP>; default is 192.168.1.10" << "\n";
+    std::cout << "-t<typename> visionary product type; default is '" << visionaryType.toString() << "\n";
     std::cout << "Visionary product types:\n";
     for (const auto& name : visionary::VisionaryType::getNames())
     {
@@ -101,7 +101,7 @@ int main(int argc, char* argv[])
 
   exitCode = runHelloSensor(visionaryType, deviceIpAddr);
 
-  std::cout << "exit code " << static_cast<int>(exitCode) << std::endl;
+  std::cout << "exit code " << static_cast<int>(exitCode) << "\n";
 
   return static_cast<int>(exitCode);
 }

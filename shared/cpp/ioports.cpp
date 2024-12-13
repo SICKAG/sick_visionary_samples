@@ -7,9 +7,9 @@
 
 #include <stdexcept>
 
-#include <CoLaCommand.h>
-#include <CoLaParameterReader.h>
-#include <CoLaParameterWriter.h>
+#include <sick_visionary_cpp_base/CoLaCommand.h>
+#include <sick_visionary_cpp_base/CoLaParameterReader.h>
+#include <sick_visionary_cpp_base/CoLaParameterWriter.h>
 
 #include "checkcola.h"
 
@@ -251,7 +251,9 @@ InputFunctionType readDioFunction(std::shared_ptr<visionary::VisionaryControl> r
   return static_cast<InputFunctionType>(reader.readUSInt());
 }
 
-void writeDioFunction(std::shared_ptr<visionary::VisionaryControl> rVisionaryControl, DInPort port, InputFunctionType type)
+void writeDioFunction(std::shared_ptr<visionary::VisionaryControl> rVisionaryControl,
+                      DInPort                                      port,
+                      InputFunctionType                            type)
 {
   using namespace visionary;
 

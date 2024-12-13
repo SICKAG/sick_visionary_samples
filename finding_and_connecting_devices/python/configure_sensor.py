@@ -28,7 +28,7 @@ parser = argparse.ArgumentParser(description="This script scans the devices in t
 parser.add_argument('-o', '--macAddress', required=True, type=str,
                     help="MAC address of the device to assign.")
 parser.add_argument('-i', '--interfaceIp', required=True, type=str,
-                    default="192.168.1.10/24", 
+                    default="192.168.1.10/24",
                     help="""Ip address of the interface on which the scan is performed.
                     It is expected to be in a CIDR manner,
                     i.e., using ip address and the length of network prefix seperated by /.

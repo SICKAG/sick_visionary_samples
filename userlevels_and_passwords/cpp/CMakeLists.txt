@@ -3,13 +3,18 @@
 #
 # SPDX-License-Identifier: Unlicense
 
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.24)
 
 message(STATUS "project: userlevels_and_passwords")
 project(userlevels_and_passwords
         VERSION 1.0.0
         DESCRIPTION "Userlevels and passwords example"
         LANGUAGES CXX)
+
+### Configuration
+if(WIN32)
+  set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON) # If building as shared lib on Windows
+endif()
 
 if (DEFINED ENV{CI_JOB_TOKEN})
   add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../3pp/botan ${CMAKE_CURRENT_BINARY_DIR}/3pp/botan)
@@ -29,7 +34,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 # root folder and name of the visionary_cpp_base module
 set(VISIONARY_BASE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../../base/cpp)
-set(VISIONARY_BASE_NAME sick_visionary_cpp_base)
+set(VISIONARY_BASE_NAME sick_visionary_cpp_base::sick_visionary_cpp_base)
 
 # sample code shared folder
 set(SHARED_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../../shared/cpp)

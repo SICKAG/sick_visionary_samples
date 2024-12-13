@@ -8,7 +8,7 @@
 
 #include <cstdint>
 
-#include <VisionaryControl.h>
+#include <sick_visionary_cpp_base/VisionaryControl.h>
 
 namespace visionary {
 

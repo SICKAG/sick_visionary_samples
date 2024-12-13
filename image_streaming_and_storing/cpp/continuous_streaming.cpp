@@ -6,8 +6,11 @@
 #include <cinttypes>
 #include <cstdint>
 #include <cstdio>
+#include <fstream>
+#include <map>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include <iostream>
 #include <sstream>
@@ -15,16 +18,19 @@
 #include <chrono>
 #include <thread>
 
-#include <FrameGrabber.h>
-#include <NetLink.h>
-#include <PointCloudPlyWriter.h>
-#include <PointXYZ.h>
-#include <VisionaryControl.h>
-#include <VisionaryType.h>
+#include <sick_visionary_cpp_base/FrameGrabber.h>
+#include <sick_visionary_cpp_base/NetLink.h>
+#include <sick_visionary_cpp_base/PointCloudPlyWriter.h>
+#include <sick_visionary_cpp_base/PointXYZ.h>
+#include <sick_visionary_cpp_base/VisionaryControl.h>
+#include <sick_visionary_cpp_base/VisionaryType.h>
 
 #include "BlobServerConfig.h"
+#include "UdpParsing.h"
 #include "exitcodes.h"
 #include "framewrite.h"
+
+#include <cassert>
 
 static ExitCode runContinuousStreamingDemo(visionary::VisionaryType visionaryType,
                                            const std::string&       transportProtocol,
@@ -72,6 +78,8 @@ static ExitCode runContinuousStreamingDemo(visionary::VisionaryType visionaryTyp
   // Login to the device for access rights to certain methods
   visionaryControl->login(IAuthentication::UserLevel::SERVICE, "CUST_SERV");
   std::shared_ptr<visionary::NetLink> udpSocket;
+
+  // tag::tcp_settings[]
   if (transportProtocol == "TCP")
   {
     // configure the data stream
@@ -80,6 +88,9 @@ static ExitCode runContinuousStreamingDemo(visionary::VisionaryType visionaryTyp
     setTransportProtocol(visionaryControl, transportProtocol); // TCP
     setBlobTcpPort(visionaryControl, streamingPort);
   }
+  // end::tcp_settings[]
+
+  // tag::udp_settings[]
   else if (transportProtocol == "UDP")
   {
     // streaming settings
@@ -98,8 +109,9 @@ static ExitCode runContinuousStreamingDemo(visionary::VisionaryType visionaryTyp
     // Create a new UdpSocket object
     // prefix 24 assumption -> problem: 192.168.136.100/16 valid device IP 192.168.136.255 in this case socket will be
     // in broadcast mode using prefix 0 -> netmask 0.0.0.0 only broadcast = global broadcast 255.255.255.255 - OK
-    udpSocket = std::make_shared<visionary::NetLink>(receiverIp, 0, streamingPort, ipAddress);
+    udpSocket = std::make_shared<visionary::NetLink>(receiverIp, 24, streamingPort, ipAddress);
   }
+  // end::udp_settings[]
 
   // login / logout always need to form blocks because login chnages to config mode (no streaming active) and logout
   // returns to RUN mode (streaming)
@@ -129,9 +141,10 @@ static ExitCode runContinuousStreamingDemo(visionary::VisionaryType visionaryTyp
   }
 
   //-----------------------------------------------
-  // tag::capture_loop[]
+  
   for (unsigned i = 0u; i < numberOfFrames; ++i)
   {
+    // tag::tcp_acquisition[]
     if (transportProtocol == "TCP")
     {
       if (!pFrameGrabber->genGetNextFrame(pDataHandler))
@@ -145,12 +158,10 @@ static ExitCode runContinuousStreamingDemo(visionary::VisionaryType visionaryTyp
       else
       {
         std::printf("Frame received in continuous mode, frame #%" PRIu32 "\n", pDataHandler->getFrameNum());
-        // end::capture_loop[]
         if (storeData)
         {
           // write the frame to disk
           writeFrame(visionaryType, *pDataHandler, filePrefix);
-          // tag::capture_loop[]
 
           // Convert data to a point cloud
           std::vector<PointXYZ> pointCloud;
@@ -171,39 +182,75 @@ static ExitCode runContinuousStreamingDemo(visionary::VisionaryType visionaryTyp
         }
       }
     }
+    // end::tcp_acquisition[]
     else if (transportProtocol == "UDP")
     {
-      std::vector<ITransport::ByteBuffer> byte_arr;
-      ITransport::ByteBuffer              buffer;
-      int                                 received;
-      std::size_t                         maxBytesToReceive = 1024;
+      // tag::udp_acquisition[]
+      pDataHandler = visionaryControl->createDataHandler();
+
+      std::map<std::uint16_t, ITransport::ByteBuffer> fragmentMap;
+      ITransport::ByteBuffer                          buffer;
+      int                                             received;
+      std::size_t                                     maxBytesToReceive = 1024;
+      std::uint16_t                                   lastFrameNum      = 0;
 
       // Receive from UDP Socket
       buffer.resize(maxBytesToReceive);
       received = udpSocket->read(buffer);
 
-      std::cout << "========== new BLOB received ==========" << std::endl;
-      std::cout << "Blob number: " << ((buffer[1] << 8) | buffer[0]) << std::endl;
-      std::cout << "server IP: " << ipAddress << std::endl;
-      std::cout << "========================================" << std::endl;
+      std::cout << "========== new BLOB received ==========" << "\n";
+      std::cout << "Blob number: " << ((buffer[0] << 8) | buffer[1]) << "\n";
+      std::cout << "server IP: " << ipAddress << "\n";
+      std::cout << "========================================" << "\n";
 
       // FIN Flag of Statemap in header is set when new BLOB begins
       while (buffer[6] != 0x80)
       {
-        ITransport::ByteBuffer fragment(buffer.begin() + 14, buffer.end()); // Payload begins at byteindex 14
-        byte_arr.push_back(fragment);
-        std::cout << "Fragment number: " << ((buffer[2] << 8) | buffer[3]) << std::endl;
-        buffer.resize(maxBytesToReceive); // just to be sure capacity is at least maxBytesToReceive // lookup
-                                          // std::vector<uint8_t> capacity
-        received = udpSocket->read(buffer);
+        std::uint16_t fragmentNumber = (static_cast<std::uint16_t>(buffer[2]) << 8) | buffer[3];
+        if (fragmentNumber - lastFrameNum > 1)
+          printf(
+            "Lost %d frames between Frames: %d %d \n", fragmentNumber - lastFrameNum, lastFrameNum, fragmentNumber);
+        lastFrameNum = fragmentNumber;
+        ITransport::ByteBuffer fragment(
+          buffer.begin() + 14, buffer.end() - 1); // Payload begins at byteindex 14, Last element contains checksum
+        fragmentMap[fragmentNumber] = fragment;
+        received                    = udpSocket->read(buffer);
       }
+      int                    fragmentNumber = (buffer[2] << 8) | buffer[3];
+      ITransport::ByteBuffer last_fragment(buffer.begin() + 14, buffer.end() - 1);
+      fragmentMap[fragmentNumber] = last_fragment;
 
-      std::cout << "Fragment number: " << ((buffer[2] << 8) | buffer[3]) << std::endl;
-      ITransport::ByteBuffer last_fragment(buffer.begin() + 14, buffer.end()); // Payload begins at byteindex 14
-      byte_arr.push_back(last_fragment);
+      auto completeBlob = reassembleFragments(fragmentMap);
+
+      parseUdpBlob(completeBlob, pDataHandler);
+      // end::udp_acquisition[]
+
+      std::printf("Frame received in continuous mode, frame #%" PRIu32 "\n", pDataHandler->getFrameNum());
+
+      if (storeData)
+      {
+        // write the frame to disk
+        writeFrame(visionaryType, *pDataHandler, filePrefix);
+
+        // Convert data to a point cloud
+        std::vector<PointXYZ> pointCloud;
+        pDataHandler->generatePointCloud(pointCloud);
+        pDataHandler->transformPointCloud(pointCloud);
+
+        // Write point cloud to PLY
+        const std::string framePrefix  = std::to_string(pDataHandler->getFrameNum());
+        std::string       plyFilePath  = framePrefix + "-pointcloud.ply";
+        const char*       cPlyFilePath = plyFilePath.c_str();
+        std::printf("Writing frame to %s\n", cPlyFilePath);
+
+        if (visionaryType == VisionaryType::eVisionaryS)
+          PointCloudPlyWriter::WriteFormatPLY(cPlyFilePath, pointCloud, pDataHandler->getRGBAMap(), true);
+        else
+          PointCloudPlyWriter::WriteFormatPLY(cPlyFilePath, pointCloud, pDataHandler->getIntensityMap(), true);
+        std::printf("Finished writing frame to %s\n", cPlyFilePath);
+      }
     }
   }
-  // end::capture_loop[]
 
   //-----------------------------------------------
   // tag::stop_acquisition[]

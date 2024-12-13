@@ -4,9 +4,9 @@
 // SPDX-License-Identifier: Unlicense
 
 #include "BlobServerConfig.h"
-#include <CoLaCommand.h>
-#include <CoLaError.h>
-#include <CoLaParameterWriter.h>
+#include <sick_visionary_cpp_base/CoLaCommand.h>
+#include <sick_visionary_cpp_base/CoLaError.h>
+#include <sick_visionary_cpp_base/CoLaParameterWriter.h>
 #include <iostream>
 
 using namespace visionary;
@@ -59,7 +59,7 @@ bool setBlobUdpReceiverPort(std::shared_ptr<VisionaryControl> visionaryControl, 
   }
   else
   {
-    std::cout << "ERROR: the receiver port must be a value between 1025 and 65535!" << std::endl;
+    std::cout << "ERROR: the receiver port must be a value between 1025 and 65535!" << "\n";
     return false;
   }
 }
@@ -83,7 +83,7 @@ bool setBlobUdpControlPort(std::shared_ptr<VisionaryControl> visionaryControl, s
   }
   else
   {
-    std::cout << "ERROR: the udp control port must be a value between 1025 and 65535!" << std::endl;
+    std::cout << "ERROR: the udp control port must be a value between 1025 and 65535!" << "\n";
     return false;
   }
 }
@@ -107,7 +107,7 @@ bool setBlobTcpPort(std::shared_ptr<VisionaryControl> visionaryControl, std::uin
   }
   else
   {
-    std::cout << "ERROR: the tcp control port must be a value between 1025 and 65535!" << std::endl;
+    std::cout << "ERROR: the tcp control port must be a value between 1025 and 65535!" << "\n";
     return false;
   }
 }
@@ -133,7 +133,7 @@ bool setBlobUdpMaxPacketSize(std::shared_ptr<VisionaryControl> visionaryControl,
   }
   else
   {
-    std::cout << "ERROR: the UDp max packet size must be a value between 100 and 65535!" << std::endl;
+    std::cout << "ERROR: the UDp max packet size must be a value between 100 and 65535!" << "\n";
     return false;
   }
 }
@@ -163,7 +163,7 @@ bool setBlobUdpIdleTimeBetweenPackets(std::shared_ptr<VisionaryControl> visionar
   }
   else
   {
-    std::cout << "ERROR: the value for the time between packets must be a value between 0 and 10000!" << std::endl;
+    std::cout << "ERROR: the value for the time between packets must be a value between 0 and 10000!" << "\n";
     return false;
   }
 }
@@ -207,7 +207,7 @@ bool setBlobUdpHeartbeatInterval(std::shared_ptr<VisionaryControl> visionaryCont
   }
   else
   {
-    std::cout << "ERROR: the TCP port must be a value between 0 and 10000000!" << std::endl;
+    std::cout << "ERROR: the TCP port must be a value between 0 and 10000000!" << "\n";
     return false;
   }
 }

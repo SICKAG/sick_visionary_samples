@@ -74,7 +74,7 @@ Looking at the variable definition we note:
 
 === Establish a connection
 
-The first step is to create a camera control object specifing the right `VisionaryType`. 
+The first step is to create a camera control object specifing the right `VisionaryType`.
 The `VisionaryControl` class provides an interface for controlling a Visionary Camera, including managing the connection, logging in and out, and controlling data acquisition.
 
 **C++**
@@ -97,7 +97,7 @@ deviceControl = Control(ip_address, cola_protocol, control_port)
     
 ----
 
-=== Read the current value 
+=== Read the current value
 
 In the next step we read the variable `SysTemperatureWarningMargin` and store its original value. A login is not required since the Read-Access is Always.
 
@@ -118,7 +118,7 @@ sysTemperatureWarningMarginResponse = deviceControl.readVariable(
     sysTemperatureWarningMargin = struct.unpack(
         '>h', sysTemperatureWarningMarginResponse)[0]
     print(
-        f"Current SysTemperatureWarningMargin: {sysTemperatureWarningMargin}°C")
+        f"Current SysTemperatureWarningMargin: {sysTemperatureWarningMargin} degree Celsius")
     
 ----
 
@@ -143,7 +143,7 @@ deviceControl.writeVariable(b'SysTemperatureWarningMargin', struct.pack(
             '>h', sysTemperatureWarningMargin))
         print("Successfully written new value to variable SysTemperatureWarningMargin")
         print(
-            f"Current SysTemperatureWarningMargin: {sysTemperatureWarningMargin}°C")
+            f"Current SysTemperatureWarningMargin: {sysTemperatureWarningMargin} degree Celsius")
         
 ----
 
@@ -205,11 +205,11 @@ deviceControl.logout()
 
 == Changing the password
 
-Changing the password for a given user level requires a few steps which differ based on the *Secure User Level (SUL)* version. We distingush between *SUL 1* for the *Visionary-S CX* and *SUL 2* for the *Visionary-T Mini CX*.  
+Changing the password for a given user level requires a few steps which differ based on the *Secure User Level (SUL)* version. We distingush between *SUL 1* for the *Visionary-S CX* and *SUL 2* for the *Visionary-T Mini CX*.
 
 === Step 1: Establish a connection
 
-The first step is to create a camera control object specifing the right `VisionaryType`. 
+The first step is to create a camera control object specifing the right `VisionaryType`.
 The `VisionaryControl` class provides an interface for controlling a Visionary Camera, including managing the connection, logging in and out, and controlling data acquisition.
 
 **C++**
@@ -248,7 +248,7 @@ device_control.login(user_level.value, old_password)
 
 === Step 3: Change the password
 
-To change the password we call the function `changePasswordForUserLevel` which takes as arguments the `Control-object`, the `old_password`, the `new_password` and the `device_type`. 
+To change the password we call the function `changePasswordForUserLevel` which takes as arguments the `Control-object`, the `old_password`, the `new_password` and the `device_type`.
 
 If the `device_type`` is *Visionary-S CX* which uses *SUL1*, the function will call the `changePasswordForUserLevelLegacy` and `changePasswordForUserLevelSecure` functions. If the `device_type` is *Visionary-T Mini CX* (*SUL2*) it will only call the `changePasswordForUserLevelSecure`function.
 
@@ -381,7 +381,7 @@ This method call will update the *password hash*.
 
   CoLaCommand getChangePasswordResponse = visionaryControl->sendCommand(getChangePasswordCommand);
   // 1 == SUCCESS see SetPassword method documentation
-  uint8_t     result                    = CoLaParameterReader(getChangePasswordResponse).readUSInt(); 
+  uint8_t result = CoLaParameterReader(getChangePasswordResponse).readUSInt();
   if (getChangePasswordResponse.getError() == CoLaError::OK && result == 1)
   {
     std::fprintf(
@@ -403,13 +403,13 @@ device_control.changeUserLevelPassword(user_level.value, new_password)
 
 IMPORTANT: You need to be logged into the required user level to invoke the CoLa command. Login via the `SetAccessMode` or the `login-function` provided by the Python/C++ api.
 
-=== Step 3.2: Invoke the ChangePassword CoLa command 
+=== Step 3.2: Invoke the ChangePassword CoLa command
 
 The function `changePasswordForUserLevelSecure` will create and send a CoLa command to invoke the Method `ChangePassword`. See the method description above.
 
 image:images/changePassword.PNG[]
 
-The CoLa command for the method invocation needs three parameters: 
+The CoLa command for the method invocation needs three parameters:
 
 . the `encryptedMessage` as an array of type `USInt`
 . the `length` of the encrypted message array `UInt`
@@ -417,7 +417,7 @@ The CoLa command for the method invocation needs three parameters:
 
 The function completes the following steps to create the `encryptedMessage`:
 
-1. Create the `oldPwStr` 
+1. Create the `oldPwStr`
 .. (SUL1) `oldPwStr` = `UserLevelName + ':SICK Sensor:' + oldPassword`.
 .. (SUL2) `oldPwStr` = `UserLevelName + ':SICK Sensor:' + oldPassword + ':' + oldSalt`.
 
@@ -433,10 +433,10 @@ NOTE: `UserLevelName` is the string of the name of the desired UserLevel e.g. 'A
 
 NOTE: `oldPwHash` and `newPwHash` are a 32x 8bit byte arrays.
 
-5. Calculate `encryptedNewPwdHash` 
+5. Calculate `encryptedNewPwdHash`
     .. (SUL1) encryptedNewPwdHash = `AES128CBC(key, iv, newPwHashPKCS7padded)`
     .. (SUL2) encryptedNewPwdHash = `AES128CBC(key, iv, newPwdHash)`
-    
+
 NOTE:  `key` is the first 16 bytes of `oldPwHash` and `iv` is set to be 16 bytes of random data. Set `newPwHashPKCS7padded` to `newPwHash + 16 * "\x10"`. `16 * "\x10"` means 16 times the 0x10 byte thus the `newPwHashPKCS7padded` has a length of 48 bytes in total.
 
 6. Set `hmacData` to `iv + encryptedNewPwdHash`.
@@ -452,8 +452,11 @@ NOTE:  `key` is the first 16 bytes of `oldPwHash` and `iv` is set to be 16 bytes
   ChallengeRequest challengeRequest = getChallengeFromDevice(visionaryControl, SUL);
 
   // create an encrypted message from the old password, the user Level, the new password and the old salt
-  auto encryptedMessage = createEncryptedMessage(
-    userLevel, oldPassword, newPassword, std::vector<uint8_t>(challengeRequest.salt.begin(), challengeRequest.salt.end()));
+  auto encryptedMessage =
+    createEncryptedMessage(userLevel,
+                           oldPassword,
+                           newPassword,
+                           std::vector<uint8_t>(challengeRequest.salt.begin(), challengeRequest.salt.end()));
 
   // Build the COLA command for changing the password
   CoLaParameterWriter getChangePasswordBuilder =
@@ -471,7 +474,7 @@ NOTE:  `key` is the first 16 bytes of `oldPwHash` and `iv` is set to be 16 bytes
   // send the cola command
   CoLaCommand getChangePasswordResponse = visionaryControl->sendCommand(getChangePasswordCommand);
   // 0 == SUCCESS see ChangePassword documentation
-  uint8_t     result                       = CoLaParameterReader(getChangePasswordResponse).readUSInt(); // 0 == SUCCESS
+  uint8_t result = CoLaParameterReader(getChangePasswordResponse).readUSInt(); // 0 == SUCCESS
   if (getChangePasswordResponse.getError() == CoLaError::OK && result == 0)
   {
     std::fprintf(

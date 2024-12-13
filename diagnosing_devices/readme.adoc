@@ -92,7 +92,7 @@ There are a few important things to note here:
 
 === Step 1: Establish a connection
 
-The first step is to create a camera control object specifing the right `VisionaryType`. 
+The first step is to create a camera control object specifing the right `VisionaryType`.
 The `VisionaryControl` class provides an interface for controlling a Visionary Camera, including managing the connection, logging in and out, and controlling data acquisition.
 
 **C++**
@@ -109,7 +109,7 @@ using namespace visionary;
     std::printf("Failed to open control connection to device.\n");
     return ExitCode::eCommunicationError;
   }
-   
+  
 ----
 **Python**
 [source, python]
@@ -118,7 +118,7 @@ using namespace visionary;
     deviceControl = Control(ip_address, cola_protocol, control_port)
     # Open a connection to the device
     deviceControl.open()
-     
+    
 ----
 
 === Step 2: Build and send the read command
@@ -136,7 +136,7 @@ Once a connection to the device has been successfully established we construct a
     std::printf("Failed to read variable MSinfo\n");
     return ExitCode::eParamError;
   }
-   
+  
 ----
 
 **Python**
@@ -144,10 +144,10 @@ Once a connection to the device has been successfully established we construct a
 ----
 # get the device message log
     msgLog = deviceControl.getMessageLog("MSinfo")
-     
+    
 ----
 
-=== Step 3: Parse and print the system log response 
+=== Step 3: Parse and print the system log response
 
 The next step is to parse the response. For this it is required to lookup the `ErrStructType` definition in the xref:HOW_TO_COLA_COMMANDS.adoc#_cola_telegram_listing[telegram listing] document, which looks like this:
 
@@ -187,13 +187,15 @@ Together with the knowledge that the array always contains 25 items of ErrStruct
     if (errorId != 0)
     {
       std::string errorDescription = decodeErrorCode(errorId, visionaryType.toString());
+      std::printf("Info message [0x%032" PRIx32 "], extInfo: %s, error description: %s, number of occurrences: %" PRIu16
+                  "\n",
                   errorId,
                   extInfo.c_str(),
                   errorDescription.c_str(),
                   numberOccurrences);
     }
   }
-   
+  
 ----
 **Python**
 [source,python]
@@ -212,7 +214,7 @@ Together with the knowledge that the array always contains 25 items of ErrStruct
         print(f"ErrReserved: {error['ErrReserved']}")
         print(f"ExtInfo: {error['ExtInfo'].decode('utf-8')}")
         print("\n")
-     
+    
 ----
 
 NOTE: It is important to read the values in the same order as they appear in the table! +
@@ -225,24 +227,24 @@ Finally we disconnect from the control channel.
 [source, c++]
 ----
 visionaryControl.close();
-   
+  
 ----
 **Python**
 [source,python]
 ----
 # Close the connection to the device
     deviceControl.close()
-     
+    
 ----
 
 == Device Status
 
-Visionary devices provide several interfaces to diagnose the current system health. You find an extensive list of variables in 
+Visionary devices provide several interfaces to diagnose the current system health. You find an extensive list of variables in
 the xref:HOW_TO_COLA_COMMANDS.adoc#_cola_telegram_listing[telegram listings].
 The example shows you how to read system health variables based on the three variables:
 
 * Temperature Level
-* SystemTemperature 
+* SystemTemperature
 * Operating Voltage
 
 The first step is to look up the variable definition, this is the Variable Overview:
@@ -265,8 +267,8 @@ image:images/threelvls.PNG[]
 === Step 1 and 2:
 As in the example above first you need to establish a connection to the device. Then you'll be able to build and send the cola command.
 
-Follow <<Step 1: Establish a connection>> 
-and <<Step 2: Build and send the read command>>. Make sure to adjust the variable names. 
+Follow <<Step 1: Establish a connection>>
+and <<Step 2: Build and send the read command>>. Make sure to adjust the variable names.
 
 **C++**
 [source, c++]
@@ -274,7 +276,7 @@ and <<Step 2: Build and send the read command>>. Make sure to adjust the variabl
 // Read Temperature Level
   CoLaCommand getTempLvl         = CoLaParameterWriter(CoLaCommandType::READ_VARIABLE, "TmpLvl").build();
   CoLaCommand getTempLvlResponse = visionaryControl.sendCommand(getTempLvl);
-   
+  
 ----
 
 [source, c++]
@@ -282,7 +284,7 @@ and <<Step 2: Build and send the read command>>. Make sure to adjust the variabl
 // Read operating voltage status
   CoLaCommand getOpVol      = CoLaParameterWriter(CoLaCommandType::READ_VARIABLE, "OpVoltageStatus").build();
   CoLaCommand opVolResponse = visionaryControl.sendCommand(getOpVol);
-   
+  
 ----
 
 **Python**
@@ -290,7 +292,7 @@ and <<Step 2: Build and send the read command>>. Make sure to adjust the variabl
 ----
 # Read temperature level
     tmp_lvl_response = device_control.readVariable(b'TmpLvl')
-     
+    
 ----
 
 [source, python]
@@ -298,7 +300,7 @@ and <<Step 2: Build and send the read command>>. Make sure to adjust the variabl
 # Read operating voltage status
     op_voltage_status_response = device_control.readVariable(
         b'OpVoltageStatus')
-     
+    
 ----
 
 === Step 3: Read the response (UserType ThreeLevels)
@@ -328,7 +330,7 @@ if (getTempLvlResponse.getError() != CoLaError::OK)
     UserTypes::ThreeLevels tmpLvl     = UserTypes::ThreeLevels(tmpLvlEnum);
     std::printf("Read Temperature Level = %s\n", tmpLvl.to_string().c_str());
   }
-   
+  
 ----
 [source, c++]
 ----
@@ -344,7 +346,7 @@ if (opVolResponse.getError() != CoLaError::OK)
     UserTypes::ThreeLevels opVolStatus = UserTypes::ThreeLevels(opVolEnum);
     std::printf("Read Operating voltage status = %s\n", opVolStatus.to_string().c_str());
   }
-   
+  
 ----
 
 **Python**
@@ -353,14 +355,14 @@ if (opVolResponse.getError() != CoLaError::OK)
 tmp_lvl_enum = struct.unpack('>B', tmp_lvl_response)[0]
     tmp_lvl = ThreeLevels(tmp_lvl_enum)
     print(f"Read Temperature Level: {tmp_lvl.name}")
-     
+    
 ----
 [source, python]
 ----
 op_voltage_status_enum = struct.unpack('>B', op_voltage_status_response)[0]
     op_voltage_status = ThreeLevels(op_voltage_status_enum)
     print(f"Read operating voltage status: {op_voltage_status.name}")
-     
+    
 ----
 
 === Final step: Disconnect
