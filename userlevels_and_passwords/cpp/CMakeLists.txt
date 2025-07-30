@@ -7,7 +7,7 @@ cmake_minimum_required(VERSION 3.24)
 
 message(STATUS "project: userlevels_and_passwords")
 project(userlevels_and_passwords
-        VERSION 1.0.0
+        VERSION 1.3.0
         DESCRIPTION "Userlevels and passwords example"
         LANGUAGES CXX)
 

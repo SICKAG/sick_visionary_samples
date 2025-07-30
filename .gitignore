@@ -1,5 +1,8 @@
 .vscode
 build/
 *.pyc
+*.ini
+*.ply
+*.png
 VisionaryImages/
 VisionaryToPointCloud/

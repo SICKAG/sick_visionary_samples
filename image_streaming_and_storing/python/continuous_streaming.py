@@ -15,6 +15,7 @@ from base.python.Streaming import Data
 from base.python.Streaming.BlobServerConfiguration import BlobClientConfig
 from shared.python.data_processing import processSensorData
 from shared.python.devices_config import get_device_config
+from base.python.Usertypes import FrontendMode
 
 
 def runContinuousStreamingDemo(ip_address: str, transport_protocol: str, receiver_ip: str,
@@ -35,22 +36,10 @@ def runContinuousStreamingDemo(ip_address: str, transport_protocol: str, receive
     device_control.open()
     # end::open_control_channel[]
 
-    # Stop image acquisition (works always, also when already stopped)
-    # Further you should always stop the device before reconfiguring it
-    # tag::precautionary_stop[]
-    device_control.stopStream()
-    # end::precautionary_stop[]
-
-    # Depending on the PC we might be too fast for the device configuration
-    # Just wait a short time. This should only be necessary after stop
-    # (to make sure stop really propagated and you don't get a pending frame)
-    # or after a configure to make sure configuration has finished
-    # tag::precautionary_stop[]
-    sleep(0.1)
-    # end::precautionary_stop[]
-
+    # tag::login[]
     # Login to the device for access rights to certain methods
     device_control.login(Control.USERLEVEL_SERVICE, 'CUST_SERV')
+    # end::login[]
 
     # streaming settings:
     streaming_settings = BlobClientConfig(device_control)
@@ -89,14 +78,14 @@ def runContinuousStreamingDemo(ip_address: str, transport_protocol: str, receive
             ip_address, streaming_port, protocol=transport_protocol)
         streaming_device.openStream((receiver_ip, streaming_port))
     # end::udp_settings[]
-
+    
+    # tag::start_acquisition[]
+    # start the image acquisition and continuously receive frames
+    device_control.setFrontendMode(FrontendMode.Continuous)
+    # end::start_acquisition[]
+    
     # logout after settings have been done
     device_control.logout()
-
-    # start the image acquisition and continuously receive frames
-    # tag::start_acquisition[]
-    device_control.startStream()
-    # end::start_acquisition[]
 
     # tag::capture_loop[]
     sensor_data = Data.Data()
@@ -113,10 +102,6 @@ def runContinuousStreamingDemo(ip_address: str, transport_protocol: str, receive
     except KeyboardInterrupt:
         print("Terminating")
     # end::capture_loop[]
-
-    # tag::stop_acquisition[]
-    device_control.stopStream()
-    # end::stop_acquisition[]
 
     # tag::close_streaming[]
     device_control.login(Control.USERLEVEL_AUTH_CLIENT, 'CLIENT')

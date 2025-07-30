@@ -16,7 +16,7 @@
 #include <thread>
 
 #include <sick_visionary_cpp_base/CoLaParameterWriter.h>
-#include <sick_visionary_cpp_base/FrameGrabber.h>
+#include <sick_visionary_cpp_base/FrameGrabberBase.h>
 #include <sick_visionary_cpp_base/PointCloudPlyWriter.h>
 #include <sick_visionary_cpp_base/PointXYZ.h>
 #include <sick_visionary_cpp_base/VisionaryControl.h>
@@ -24,38 +24,38 @@
 
 #include "exitcodes.h"
 #include "framewrite.h"
+#include "frontendmodes.h"
 
 static ExitCode runWelcomeDemo(visionary::VisionaryType visionaryType, const std::string& ipAddress)
 {
   using namespace visionary;
-  VisionaryControl visionaryControl(visionaryType);
+  std::shared_ptr<VisionaryControl> visionaryControl = std::make_shared<VisionaryControl>(visionaryType);
 
-  if (!visionaryControl.open(ipAddress))
+  if (!visionaryControl->open(ipAddress))
   {
     std::fprintf(stderr, "Failed to open control connection to device.\n");
 
     return ExitCode::eControlCommunicationError;
   }
 
-  // Stop image acquisition
-  if (!visionaryControl.stopAcquisition())
+  // Login to the device for access rights to certain methods
+  visionaryControl->login(IAuthentication::UserLevel::SERVICE, "CUST_SERV");
+  // Always stop the frontend before using stepAcquisition
+  writeFrontendMode(visionaryControl, FrontendMode::eStopped);
+  // Logout after configuration
+  if (!visionaryControl->logout())
   {
-    std::fprintf(stderr, "Failed to stop acquisition.\n");
-
-    return ExitCode::eControlCommunicationError;
+    std::printf("Failed to logout\n");
+    return ExitCode::eAuthenticationError;
   }
 
-  // Wait for the device configuration
-  std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
   // create a frame grabber suitable for the Visionary type used in visionaryControl
-  auto pFrameGrabber = visionaryControl.createFrameGrabber();
-
+  auto pFrameGrabber = visionaryControl->createFrameGrabber();
   // the data handler pointer will later contain the frame data
-  auto pDataHandler = visionaryControl.createDataHandler();
+  auto pDataHandler = visionaryControl->createDataHandler();
 
   // acquire a single snapshot
-  if (!visionaryControl.stepAcquisition())
+  if (!visionaryControl->stepAcquisition())
   {
     std::fprintf(stderr, "Failed to trigger a snapshot\n");
 
@@ -63,7 +63,7 @@ static ExitCode runWelcomeDemo(visionary::VisionaryType visionaryType, const std
   }
 
   // the snapshot has possibly already arrived, so parameter onlyNewer is false
-  if (!pFrameGrabber->genGetNextFrame(pDataHandler))
+  if (!pFrameGrabber->genGetNextFrame(pDataHandler, false, std::chrono::milliseconds(1200)))
   {
     std::fprintf(stderr, "Frame timeout for snapshot\n");
 
@@ -90,28 +90,18 @@ static ExitCode runWelcomeDemo(visionary::VisionaryType visionaryType, const std
     std::printf("Finished writing frame to %s\n", cPlyFilePath);
   }
 
-  // Stop image acquisition
-  if (!visionaryControl.stopAcquisition())
-  {
-    std::fprintf(stderr, "Failed to stop acquisition.\n");
-
-    return ExitCode::eControlCommunicationError;
-  }
-
-  // login to change frontend parameters
-  if (!visionaryControl.login(IAuthentication::UserLevel::AUTHORIZED_CLIENT, "CLIENT"))
+  // Another login to change frontend parameters
+  if (!visionaryControl->login(IAuthentication::UserLevel::AUTHORIZED_CLIENT, "CLIENT"))
   {
     std::printf("Failed to log into the device.\n");
     return ExitCode::eAuthenticationError;
   }
-
-  // change frontend parameters
   if (visionaryType.toString() == "Visionary-S")
   {
     // set_integrationTime
     CoLaCommand setIntegrationTimeUsCommand =
       CoLaParameterWriter(CoLaCommandType::WRITE_VARIABLE, "integrationTimeUs").parameterUDInt(3000).build();
-    auto setIntegrationTimeUsResponse = visionaryControl.sendCommand(setIntegrationTimeUsCommand);
+    auto setIntegrationTimeUsResponse = visionaryControl->sendCommand(setIntegrationTimeUsCommand);
     std::cout << "Set integration time to 3000 micro seconds." << "\n";
   }
   else if (visionaryType.toString() == "Visionary-T_Mini")
@@ -119,21 +109,18 @@ static ExitCode runWelcomeDemo(visionary::VisionaryType visionaryType, const std
     // Set FramePeriodUS
     CoLaCommand setFramePeriodUsCommand =
       CoLaParameterWriter(CoLaCommandType::WRITE_VARIABLE, "framePeriodUs").parameterUDInt(60000).build();
-    auto setFramePeriodUsResponse = visionaryControl.sendCommand(setFramePeriodUsCommand);
+    auto setFramePeriodUsResponse = visionaryControl->sendCommand(setFramePeriodUsCommand);
     std::cout << "Set frame period to 60000 micro seconds." << "\n";
   }
 
-  if (!visionaryControl.logout())
+  if (!visionaryControl->logout())
   {
     std::printf("Failed to logout\n");
     return ExitCode::eAuthenticationError;
   }
 
-  // Wait for the device configuration
-  std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
   // acquire a single snapshot
-  if (!visionaryControl.stepAcquisition())
+  if (!visionaryControl->stepAcquisition())
   {
     std::fprintf(stderr, "Failed to trigger a snapshot\n");
 
@@ -141,7 +128,7 @@ static ExitCode runWelcomeDemo(visionary::VisionaryType visionaryType, const std
   }
 
   // the snapshot has possibly already arrived, so parameter onlyNewer is false
-  if (!pFrameGrabber->genGetNextFrame(pDataHandler))
+  if (!pFrameGrabber->genGetNextFrame(pDataHandler, false, std::chrono::milliseconds(2000)))
   {
     std::fprintf(stderr, "Frame timeout for snapshot\n");
 
@@ -168,18 +155,19 @@ static ExitCode runWelcomeDemo(visionary::VisionaryType visionaryType, const std
     std::printf("Finished writing frame to %s\n", cPlyFilePath);
   }
 
-  // Stop image acquisition
-  if (!visionaryControl.stopAcquisition())
+  // Before exiting the sample we reset the frontendmode to "Continuous" and delete the framegrabber
+  if (!visionaryControl->login(IAuthentication::UserLevel::AUTHORIZED_CLIENT, "CLIENT"))
   {
-    std::fprintf(stderr, "Failed to stop acquisition.\n");
-
-    return ExitCode::eControlCommunicationError;
+    std::printf("Failed to log into the device.\n");
+    return ExitCode::eAuthenticationError;
   }
-
+  
+  writeFrontendMode(visionaryControl, FrontendMode::eContinuous);
   // delete the frame grabber
   pFrameGrabber.reset();
 
-  visionaryControl.close();
+  visionaryControl->logout();
+  visionaryControl->close();
   std::printf("Logout and close.\n");
 
   return ExitCode::eOk;

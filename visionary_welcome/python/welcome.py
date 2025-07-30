@@ -20,6 +20,7 @@ from base.python.Streaming import Data
 from base.python.Streaming.BlobServerConfiguration import BlobClientConfig
 from shared.python.framewrite import writeFrame
 from shared.python.devices_config import get_device_config
+from base.python.Usertypes import FrontendMode
 
 
 def runWelcomeDemo(ip_address: str, cola_protocol: str, control_port: int, device_type: str):
@@ -32,12 +33,6 @@ def runWelcomeDemo(ip_address: str, cola_protocol: str, control_port: int, devic
     # Connect to control channel
     device_control = Control(ip_address, cola_protocol, control_port)
     device_control.open()
-
-    # Stop image acquisition
-    device_control.stopStream()
-
-    # Wait for stop command to be complete
-    sleep(0.1)
 
     # Login to the device for access rights to certain methods
     device_control.login(Control.USERLEVEL_SERVICE, 'CUST_SERV')
@@ -52,6 +47,12 @@ def runWelcomeDemo(ip_address: str, cola_protocol: str, control_port: int, devic
     streaming_device = Streaming(ip_address, 2114)
     streaming_device.openStream()
 
+    # Stop image acquisition (works always, also when already stopped)
+    # Further you should always stop the device before calling singleStep()
+    # tag::stop_image_acquisition[]
+    device_control.setFrontendMode(FrontendMode.Stopped)
+    # end::stop_image_acquisition[]
+
     # Logout after configuration
     device_control.logout()
 
@@ -64,43 +65,40 @@ def runWelcomeDemo(ip_address: str, cola_protocol: str, control_port: int, devic
     print("Data Timestamp [YYYY-MM-DD HH:MM:SS.mm] = %04u-%02u-%02u %02u:%02u:%02u.%03u" % (
         sensor_data.getDecodedTimestamp()))
     if sensor_data.hasDepthMap:
-                    frame_number = sensor_data.depthmap.frameNumber
-                    print("Data contains depth map data:")
-                    print("=== Write PNG file: Frame number: {}".format(frame_number))
-                    writeFrame(device_type, sensor_data,
-                            os.path.join(img_dir, ""))
-                    print("=== Converting image to pointcloud")
+        frame_number = sensor_data.depthmap.frameNumber
+        print("Data contains depth map data:")
+        print("=== Write PNG file: Frame number: {}".format(frame_number))
+        writeFrame(device_type, sensor_data,
+                   os.path.join(img_dir, ""))
+        print("=== Converting image to pointcloud")
 
-                    # Non optimized
-                    start_time = time.time()
-                    world_coordinates, dist_data = convertToPointCloud(sensor_data.depthmap.distance,
-                                                                    sensor_data.depthmap.intensity,
-                                                                    sensor_data.depthmap.confidence,
-                                                                    sensor_data.cameraParams, sensor_data.xmlParser.stereo)
-                    end_time = time.time()
-                    execution_time = end_time - start_time
-                    print(f"convertToPointCloud took: {execution_time:.3}s")
+        # Non optimized
+        start_time = time.time()
+        world_coordinates, dist_data = convertToPointCloud(sensor_data.depthmap.distance,
+                                                           sensor_data.depthmap.intensity,
+                                                           sensor_data.depthmap.confidence,
+                                                           sensor_data.cameraParams, sensor_data.xmlParser.stereo)
+        end_time = time.time()
+        execution_time = end_time - start_time
+        print(f"convertToPointCloud took: {execution_time:.3}s")
 
-                    # Optimized
-                    is_stereo = True if device_type == "Visionary-S" else False
-                    start_time = time.time()
-                    point_cloud = convertToPointCloudOptimized(sensor_data.depthmap.distance,
-                                                                        sensor_data.depthmap.confidence,
-                                                                        sensor_data.cameraParams, is_stereo)
-                    end_time = time.time()
-                    execution_time = end_time - start_time
-                    print(f"convertToPointCloudOptimized took: {execution_time:.3}s")
+        # Optimized
+        is_stereo = True if device_type == "Visionary-S" else False
+        start_time = time.time()
+        point_cloud = convertToPointCloudOptimized(sensor_data.depthmap.distance,
+                                                   sensor_data.depthmap.confidence,
+                                                   sensor_data.cameraParams, is_stereo)
+        end_time = time.time()
+        execution_time = end_time - start_time
+        print(f"convertToPointCloudOptimized took: {execution_time:.3}s")
 
-                    # Write output of the non optimized function to PLY
-                    writePointCloudToPLY(os.path.join(
-                        pcl_dir, "world_coordinates{}.ply".format(frame_number)), world_coordinates)
+        # Write output of the non optimized function to PLY
+        writePointCloudToPLY(os.path.join(
+            pcl_dir, "world_coordinates{}.ply".format(frame_number)), world_coordinates)
 
-                    # Write output of the optimized function to PCD
-                    writePointCloudToPCD(os.path.join(
-                        pcl_dir, "world_coordinates{}.pcd".format(frame_number)), point_cloud.reshape(-1, point_cloud.shape[-1]))
-
-    # Stop image aqcuisition
-    device_control.stopStream()
+        # Write output of the optimized function to PCD
+        writePointCloudToPCD(os.path.join(
+            pcl_dir, "world_coordinates{}.pcd".format(frame_number)), point_cloud.reshape(-1, point_cloud.shape[-1]))
 
     # Login to the device for access rights to certain methods
     device_control.login(Control.USERLEVEL_SERVICE, 'CUST_SERV')
@@ -125,49 +123,47 @@ def runWelcomeDemo(ip_address: str, cola_protocol: str, control_port: int, devic
     print("Data Timestamp [YYYY-MM-DD HH:MM:SS.mm] = %04u-%02u-%02u %02u:%02u:%02u.%03u" % (
         sensor_data.getDecodedTimestamp()))
     if sensor_data.hasDepthMap:
-                    frame_number = sensor_data.depthmap.frameNumber
-                    print("Data contains depth map data:")
-                    print("=== Write PNG file: Frame number: {}".format(frame_number))
-                    writeFrame(device_type, sensor_data,
-                            os.path.join(img_dir, ""))
-                    print("=== Converting image to pointcloud")
+        frame_number = sensor_data.depthmap.frameNumber
+        print("Data contains depth map data:")
+        print("=== Write PNG file: Frame number: {}".format(frame_number))
+        writeFrame(device_type, sensor_data,
+                   os.path.join(img_dir, ""))
+        print("=== Converting image to pointcloud")
 
-                    # Non optimized
-                    start_time = time.time()
-                    world_coordinates, dist_data = convertToPointCloud(sensor_data.depthmap.distance,
-                                                                    sensor_data.depthmap.intensity,
-                                                                    sensor_data.depthmap.confidence,
-                                                                    sensor_data.cameraParams, sensor_data.xmlParser.stereo)
-                    end_time = time.time()
-                    execution_time = end_time - start_time
-                    print(f"convertToPointCloud took: {execution_time:.3}s")
+        # Non optimized
+        start_time = time.time()
+        world_coordinates, dist_data = convertToPointCloud(sensor_data.depthmap.distance,
+                                                           sensor_data.depthmap.intensity,
+                                                           sensor_data.depthmap.confidence,
+                                                           sensor_data.cameraParams, sensor_data.xmlParser.stereo)
+        end_time = time.time()
+        execution_time = end_time - start_time
+        print(f"convertToPointCloud took: {execution_time:.3}s")
 
-                    # Optimized
-                    is_stereo = True if device_type == "Visionary-S" else False
-                    start_time = time.time()
-                    point_cloud = convertToPointCloudOptimized(sensor_data.depthmap.distance,
-                                                                        sensor_data.depthmap.confidence,
-                                                                        sensor_data.cameraParams, is_stereo)
-                    end_time = time.time()
-                    execution_time = end_time - start_time
-                    print(f"convertToPointCloudOptimized took: {execution_time:.3}s")
+        # Optimized
+        is_stereo = True if device_type == "Visionary-S" else False
+        start_time = time.time()
+        point_cloud = convertToPointCloudOptimized(sensor_data.depthmap.distance,
+                                                   sensor_data.depthmap.confidence,
+                                                   sensor_data.cameraParams, is_stereo)
+        end_time = time.time()
+        execution_time = end_time - start_time
+        print(f"convertToPointCloudOptimized took: {execution_time:.3}s")
 
-                    # Write output of the non optimized function to PLY
-                    writePointCloudToPLY(os.path.join(
-                        pcl_dir, "world_coordinates{}.ply".format(frame_number)), world_coordinates)
+        # Write output of the non optimized function to PLY
+        writePointCloudToPLY(os.path.join(
+            pcl_dir, "world_coordinates{}.ply".format(frame_number)), world_coordinates)
 
-                    # Write output of the optimized function to PCD
-                    writePointCloudToPCD(os.path.join(
-                        pcl_dir, "world_coordinates{}.pcd".format(frame_number)), point_cloud.reshape(-1, point_cloud.shape[-1]))
+        # Write output of the optimized function to PCD
+        writePointCloudToPCD(os.path.join(
+            pcl_dir, "world_coordinates{}.pcd".format(frame_number)), point_cloud.reshape(-1, point_cloud.shape[-1]))
 
-
-    # Stop image aqcuisition
-    device_control.stopStream()
-
-    # Close streaming channel
+    # Close streaming socket
     streaming_device.closeStream()
-
-    # Logout and close
+    device_control.login(Control.USERLEVEL_AUTH_CLIENT, 'CLIENT')
+    # Reset the image acquisition to default mode
+    device_control.setFrontendMode(FrontendMode.Continuous)
+    device_control.logout()
     device_control.close()
     print("Logout and close.")
 
