@@ -61,15 +61,15 @@ The samples in this repository have been tested with the following platforms:
 | **description**
 | **firmware version**
 
-| Visionary-T Mini CX (pass:[V3S105-1AAAAAA])
-| link:https://www.sick.com/de/en/catalog/products/machine-vision-and-identification/machine-vision/visionary-t-mini/v3s105-1aaaaaa/p/p665983[1112649]
+| Visionary-T Mini CX (pass:[V3S105-1AAAAAA], pass:[V3S105-1AAAAAD])
+| link:https://www.sick.com/1112649[1112649] link:https://www.sick.com/1132065[1132065]
 | 3D time-of-flight camera
-| 2.1.0 & ✔ 3.0.0
+| 2.1.0 & 3.0.0 & 3.0.1 ✔
 
 | Visionary-S CX (pass:[V3S102-1AAAAAA], pass:[V3S102<area>-1AABAAB])
-| link:https://www.sick.com/de/en/catalog/products/machine-vision-and-identification/machine-vision/visionary-s/v3s102-1aaaaaa/p/p602149[1090184] link:https://www.sick.com/de/en/catalog/products/machine-vision-and-identification/machine-vision/visionary-s/v3s102-1aabaab/p/p651629[1090185]
+| link:https://www.sick.com/1090184[1090184] link:https://www.sick.com/1090185[1090185]
 | 3D structured light stereovision camera with RGB data
-| 6.0.0 & ✔ 6.5.0
+| 6.0.0 & 6.5.0 ✔
 |===
 
 

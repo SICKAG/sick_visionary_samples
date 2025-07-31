@@ -18,7 +18,7 @@
 #include <sick_visionary_cpp_base/CoLaCommand.h>
 #include <sick_visionary_cpp_base/CoLaParameterReader.h>
 #include <sick_visionary_cpp_base/CoLaParameterWriter.h>
-#include <sick_visionary_cpp_base/FrameGrabber.h>
+#include <sick_visionary_cpp_base/FrameGrabberBase.h>
 #include <sick_visionary_cpp_base/NetLink.h>
 #include <sick_visionary_cpp_base/PointCloudPlyWriter.h>
 #include <sick_visionary_cpp_base/PointXYZ.h>
@@ -224,14 +224,6 @@ static ExitCode runExternalTriggerDemo(visionary::VisionaryType visionaryType,
     std::fprintf(stderr, "Failed to logout from device\n");
     return ExitCode::eControlCommunicationError;
   }
-
-  // Depending on the PC we might be too fast for the device configuration
-  // Just wait a short time. This should only be necessary after stop
-  // (to make sure stop really propagated and you don't get a pending frame)
-  // or after a configure to make sure configuration has finished
-  // tag::precautionary_sleep[]
-  std::this_thread::sleep_for(std::chrono::milliseconds(100));
-  // end::precautionary_sleep[]
 
   // create a frame grabber suitable for the Visionary type used in visionaryControl
   // tag::create_frame_grabber[]

@@ -7,7 +7,7 @@ cmake_minimum_required(VERSION 3.24)
 
 message(STATUS "project: finding_and_connecting_devices")
 project(finding_and_connecting_devices
-        VERSION 1.0.0
+        VERSION 1.3.0
         DESCRIPTION "Finding, configuring and first interaction with visionary device"
         LANGUAGES CXX)
 

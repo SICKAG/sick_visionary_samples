@@ -7,7 +7,7 @@ cmake_minimum_required(VERSION 3.24)
 
 message(STATUS "project: image_frontend_configuration")
 project(image_frontend_configuration
-        VERSION 1.0.0
+        VERSION 1.3.0
         DESCRIPTION "Shows how to configure the frontend settings of Visionary devices"
         LANGUAGES CXX)
 

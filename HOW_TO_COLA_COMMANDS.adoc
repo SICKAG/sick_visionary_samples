@@ -9,8 +9,8 @@
 The Visionary-S and Visionary-T Mini cameras use the CoLa protocol to send and receive control or streaming commands aka telegrams.
 The available CoLa commands for the control channel of each device can be found in:
 
-- link:https://cdn.sick.com/media/docs/4/44/844/telegram_listing_visionary_s_cx_telegram_listing_en_im0106844.pdf[Visionary-S Telegram Listing]
-- link:https://cdn.sick.com/media/docs/7/47/847/telegram_listing_visionary_t_mini_cx_telegram_listing_en_im0106847.pdf[Visionary-T Mini Telegram Listing]
+- link:https://www.sick.com/8028972[Visionary-S Telegram Listing]
+- link:https://www.sick.com/8028971[Visionary-T Mini Telegram Listing]
 
 The following section explains how to read and write CoLa commands/responses in `Python` and `C++`.
 Most CoLa commands follow a simple structure and their implementation is therefore easy.

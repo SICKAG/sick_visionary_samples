@@ -15,7 +15,7 @@
 #include <chrono>
 #include <thread>
 
-#include <sick_visionary_cpp_base/FrameGrabber.h>
+#include <sick_visionary_cpp_base/FrameGrabberBase.h>
 #include <sick_visionary_cpp_base/NetLink.h>
 #include <sick_visionary_cpp_base/PointCloudPlyWriter.h>
 #include <sick_visionary_cpp_base/PointXYZ.h>
@@ -24,6 +24,7 @@
 
 #include "BlobServerConfig.h"
 #include "exitcodes.h"
+#include "frontendmodes.h"
 
 #include "UdpParsing.h"
 #include "framewrite.h"
@@ -52,28 +53,12 @@ static ExitCode runSnapshotsDemo(visionary::VisionaryType visionaryType,
   }
   // end::open_control_channel[]
 
-  //-----------------------------------------------
-  // Stop image acquisition (works always, also when already stopped)
-  // Further you should always stop the device before reconfiguring it
-  // tag::initial_stop[]
-  if (!visionaryControl->stopAcquisition())
-  {
-    std::fprintf(stderr, "Failed to stop acquisition.\n");
-
-    return ExitCode::eControlCommunicationError;
-  }
-
-  // end::initial_stop[]
-  // Depending on the PC we might be too fast for the device configuration
-  // Just wait a short time. This should only be necessary after stop
-  // (to make sure stop really propagated and you don't get a pending frame)
-  // or after a configure to make sure configuration has finished
-  // tag::initial_stop[]
-  std::this_thread::sleep_for(std::chrono::milliseconds(100));
-  // end::initial_stop[]
-
-  // Login to the device for access rights to certain methods
+  // tag::login[]
+  // Login/ logout always need to form blocks, as a login changes the camera mode to “config” (no active streaming)
+  // and logging out resets the mode to “RUN” (streaming).
   visionaryControl->login(IAuthentication::UserLevel::SERVICE, "CUST_SERV");
+  // end::login[]
+
   std::shared_ptr<visionary::NetLink> udpSocket;
   if (transportProtocol == "TCP")
   {
@@ -104,7 +89,11 @@ static ExitCode runSnapshotsDemo(visionary::VisionaryType visionaryType,
     udpSocket = std::make_shared<visionary::NetLink>(receiverIp, 24, streamingPort, ipAddress);
   }
 
-  // login / logout always need to form blocks because login changes to config mode (no streaming active) and logout
+  // tag::stop_frontend[]
+  // set FrontendMode::eStopped to switch to software trigger
+  writeFrontendMode(visionaryControl, FrontendMode::eStopped);
+  // end::stop_frontend[]
+
   // returns to RUN mode (streaming)
   visionaryControl->logout();
 
@@ -126,6 +115,11 @@ static ExitCode runSnapshotsDemo(visionary::VisionaryType visionaryType,
     pDataHandler = visionaryControl->createDataHandler();
     // end::create_frame_grabber[]
   }
+
+  // trigger dummy snapshot acquistion to restart frontend (a stopped frontend needs to warm up for 16 frames to achieve specified TOF precision, these frames will be dropped internally)
+  visionaryControl->stepAcquisition();
+  if(!pFrameGrabber->genGetNextFrame(pDataHandler, false, std::chrono::milliseconds(2000)))
+    std::fprintf(stderr, "get next frame timeout");
 
   //-----------------------------------------------
   // acquire a single snapshot
@@ -260,7 +254,6 @@ static ExitCode runSnapshotsDemo(visionary::VisionaryType visionaryType,
   }
 
   visionaryControl->login(IAuthentication::UserLevel::SERVICE, "CUST_SERV");
-
   if (transportProtocol == "TCP")
   {
     // delete the frame grabber
@@ -271,14 +264,14 @@ static ExitCode runSnapshotsDemo(visionary::VisionaryType visionaryType,
     // end::release_frame_grabber[]
     setBlobTcpPort(visionaryControl, 2114);
   }
-
   else if (transportProtocol == "UDP")
   {
     // reset to TCP
     setTransportProtocol(visionaryControl, "TCP");
     setBlobTcpPort(visionaryControl, 2114);
   }
-
+  // Reset the frontendmode
+  writeFrontendMode(visionaryControl, FrontendMode::eContinuous);
   // tag::close_control_channel[]
   visionaryControl->logout();
   visionaryControl->close();

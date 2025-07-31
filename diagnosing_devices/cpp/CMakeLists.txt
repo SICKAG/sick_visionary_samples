@@ -7,7 +7,7 @@ cmake_minimum_required(VERSION 3.24)
 
 message(STATUS "project: diagnosing_devices")
 project(diagnosing_devices
-        VERSION 1.0.0
+        VERSION 1.3.0
         DESCRIPTION "Devicestate and system log sample"
         LANGUAGES CXX)
 

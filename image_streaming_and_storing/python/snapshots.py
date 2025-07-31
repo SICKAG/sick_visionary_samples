@@ -15,6 +15,7 @@ from base.python.Streaming import Data
 from base.python.Streaming.BlobServerConfiguration import BlobClientConfig
 from shared.python.data_processing import processSensorData
 from shared.python.devices_config import get_device_config
+from base.python.Usertypes import FrontendMode
 
 
 def runSnapshotsDemo(ip_address: str, transport_protocol: str, receiver_ip: str,
@@ -34,22 +35,10 @@ def runSnapshotsDemo(ip_address: str, transport_protocol: str, receiver_ip: str,
     # Open a connection to the device
     device_control.open()
 
-    # Stop image acquisition (works always, also when already stopped)
-    # Further you should always stop the device before reconfiguring it
-    # tag::precautionary_stop[]
-    device_control.stopStream()
-    # end::precautionary_stop[]
-
-    # Depending on the PC we might be too fast for the device configuration
-    # Just wait a short time. This should only be necessary after stop
-    # (to make sure stop really propagated and you don't get a pending frame)
-    # or after a configure to make sure configuration has finished
-
-    time.sleep(0.1)
-    # end::precautionary_stop[]
-
+    # tag::login[]
     # access the device via a set account to change settings
     device_control.login(Control.USERLEVEL_SERVICE, 'CUST_SERV')
+    # end::login[]
 
     # streaming settings:
     streaming_settings = BlobClientConfig(device_control)
@@ -83,6 +72,11 @@ def runSnapshotsDemo(ip_address: str, transport_protocol: str, receiver_ip: str,
         streaming_device = Streaming(
             ip_address, streaming_port, protocol=transport_protocol)
         streaming_device.openStream((receiver_ip, streaming_port))
+    
+    # tag::stop_frontend[]
+    # Stop image acquisition (works always, also when already stopped)
+    device_control.setFrontendMode(FrontendMode.Stopped)
+    # end::stop_frontend[]
 
     # logout after settings have been done
     device_control.logout()
@@ -93,6 +87,11 @@ def runSnapshotsDemo(ip_address: str, transport_protocol: str, receiver_ip: str,
     # end::avoid_overrun[]
 
     sensor_data = Data.Data()
+
+    # trigger dummy snapshot acquistion to restart frontend 
+    # (a stopped frontend needs to warm up for 16 frames to achieve specified TOF precision, these frames will be dropped internally)
+    device_control.singleStep()
+    streaming_device.getFrame()
 
     # acquire a single snapshot
     for i in range(number_frames):
@@ -129,6 +128,8 @@ def runSnapshotsDemo(ip_address: str, transport_protocol: str, receiver_ip: str,
     # end::close_streaming[]
 
     # tag::logout_and_close[]
+    # Reset the image acquisition to default mode
+    device_control.setFrontendMode(FrontendMode.Continuous)
     device_control.logout()
     device_control.close()
     # end::logout_and_close[]

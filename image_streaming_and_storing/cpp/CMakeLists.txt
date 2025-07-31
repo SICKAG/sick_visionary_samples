@@ -7,7 +7,7 @@ cmake_minimum_required(VERSION 3.24)
 
 message(STATUS "project: continuous_streaming")
 project(continuous_streaming
-        VERSION 1.0.0
+        VERSION 1.3.0
         DESCRIPTION "Continuous streaming example"
         LANGUAGES CXX C)
 

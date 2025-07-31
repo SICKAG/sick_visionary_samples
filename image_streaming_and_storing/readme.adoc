@@ -23,7 +23,7 @@ Externally triggered::
 
 All three modes are supported by the Visionary API. The following sections describe the streaming modes in detail.
 
-TIP: some devices like the Visionary-S CX will not stream data as long as a user-login is active. So if you do not receive any data, check whether you
+TIP: Some devices like the Visionary-S CX will not stream data as long as a user-login is active. So if you do not receive any data, check whether you
      forgot a `logout` somewhere in your code.
 
 
@@ -163,32 +163,24 @@ device_control = Control(ip_address, cola_protocol, control_port)
     
 ----
 
-To be synchronous with the device, we stop the device (it might already send data) and wait a short time until the stop command has been processed by the device and the data stream has been stopped.
-If we omit this step, we might receive partial frame data as soon as we open the data streaming connection.
-
-NOTE: It is ok to stop a device even if it is not streaming. In this case the stop command will be ignored by the device.
+Login to the device for access rights to certain configuration methods.
 
 **C++**
 [source,c++]
 ----
-if (!visionaryControl->stopAcquisition())
-  {
-    std::fprintf(stderr, "Failed to stop acquisition.\n");
-
-    return ExitCode::eControlCommunicationError;
-  }
-
+// Login/ logout always need to form blocks, as a login changes the camera mode to “config” (no active streaming)
+  // and logging out resets the mode to “RUN” (streaming).
+  visionaryControl->login(IAuthentication::UserLevel::SERVICE, "CUST_SERV");
   
 ----
 
 **Python**
 [source,python]
 ----
-device_control.stopStream()
+# Login to the device for access rights to certain methods
+    device_control.login(Control.USERLEVEL_SERVICE, 'CUST_SERV')
     
 ----
-
-On the communication layer this uses the `PLAYSTOP` method (see xref:HOW_TO_COLA_COMMANDS.adoc#_cola_telegram_listing[telegram listings]) to stop the device. This command works independently of the devices `frontendMode` variable and can be called from any user level.
 
 ==== Streaming channel: TCP or UDP
 
@@ -272,8 +264,27 @@ elif transport_protocol == "UDP":
     
 ----
 
+As a final configuration step we make sure that the FrontendMode is set to `Continuous`.
+
+**C++**
+[source,c++]
+----
+writeFrontendMode(visionaryControl, FrontendMode::eContinuous);
+  // returns to RUN mode (streaming)
+  visionaryControl->logout();
+  
+----
+
+**Python**
+[source,python]
+----
+# start the image acquisition and continuously receive frames
+    device_control.setFrontendMode(FrontendMode.Continuous)
+    
+----
+
 === Frame acquisition
-==== TCP: Create a frame grabber and start the acquisition
+==== TCP: Create a frame grabber
 
 Now we can create a frame grabber. It handles the data connection to the device and automatically re-establishes the data connection if it was lost.
 It creates an internal thread that receives frames from the data connection and stores the most recently received frame for the application to retrieve. The frame grabber will automatically drop frames if the application does not receive frames fast enough.
@@ -287,29 +298,7 @@ pFrameGrabber = visionaryControl->createFrameGrabber();
     
 ----
 
-With the frame grabber created we can then start the acquisition of the device.
-
-[source,c++]
-----
-if (!visionaryControl->startAcquisition())
-  {
-    std::fprintf(stderr, "Failed to start acquisition.\n");
-
-    return ExitCode::eControlCommunicationError;
-  }
-  
-----
-
 The data handler in the pointer variable `pDataHandler` contains all data received from the frame.
-
-**Python**
-[source,python]
-----
-device_control.startStream()
-    
-----
-
-On the communication layer this uses the `PLAYSTART` method to start the device independently of the devices `frontendMode` variable and can be called from any user level.
 
 For details on how to access the frame metadata and the maps see <<Processing the frame data>>.
 
@@ -426,23 +415,7 @@ sensor_data = Data.Data()
     
 ----
 
-=== Stop and end the acquisition
-
-Finally, we need to end the data connection and stop the acquisition on the device. While this is optional, it is recommended to do this to ensure a clean shutdown of the device.
-
-**C++**
-[source,c++]
-----
-if (!visionaryControl->stopAcquisition())
-  {
-    std::fprintf(stderr, "Failed to stop acquisition.\n");
-
-    return ExitCode::eControlCommunicationError;
-  }
-  
-----
-
-Now we release the frame grabber.
+=== Release the frame grabber
 
 **C++**
 [source,c++]
@@ -481,13 +454,8 @@ visionaryControl->close();
 **Python**
 [source,python]
 ----
-device_control.login(Control.USERLEVEL_AUTH_CLIENT, 'CLIENT')
-    streaming_device.closeStream()
-    if transport_protocol == "UDP":
-        # restoring back to TCP mode
-        streaming_settings.setTransportProtocol(
-            streaming_settings.PROTOCOL_TCP)
-    streaming_settings.setBlobTcpPort(2114)
+device_control.logout()
+    device_control.close()
     
 ----
 
@@ -515,26 +483,42 @@ The sample code can be found in `cpp/snapshots.cpp` and `python/snapshots.py`.
 
 The preparation step is identical to the preparation step for continuous streaming.
 
-IMPORTANT: Snapshots can only be acquired when the continuous streaming is stopped.
-           It is allowed to stop a device even if it is not streaming. In this case the stop command will be ignored by the device.
-
 **C++**
 [source,c++]
 ----
-if (!visionaryControl->stopAcquisition())
-  {
-    std::fprintf(stderr, "Failed to stop acquisition.\n");
-
-    return ExitCode::eControlCommunicationError;
-  }
-
+// Login/ logout always need to form blocks, as a login changes the camera mode to “config” (no active streaming)
+  // and logging out resets the mode to “RUN” (streaming).
+  visionaryControl->login(IAuthentication::UserLevel::SERVICE, "CUST_SERV");
   
 ----
 
 **Python**
 [source,python]
 ----
-device_control.stopStream()
+# access the device via a set account to change settings
+    device_control.login(Control.USERLEVEL_SERVICE, 'CUST_SERV')
+    
+----
+
+The configuration step is the same as in the previous sample <<Streaming channel: TCP or UDP>>.
+
+Before the logout and finalisation of the configration we make sure to stop the frontend.
+
+IMPORTANT: Snapshots can only be acquired when the continuous streaming is stopped. It is allowed to stop a device even if it is not streaming. In this case the command for setting the frontendmode to stopped will be ignored by the device.
+
+**C++**
+[source,c++]
+----
+// set FrontendMode::eStopped to switch to software trigger
+  writeFrontendMode(visionaryControl, FrontendMode::eStopped);
+  
+----
+
+**Python**
+[source,python]
+----
+# Stop image acquisition (works always, also when already stopped)
+    device_control.setFrontendMode(FrontendMode.Stopped)
     
 ----
 
@@ -734,7 +718,7 @@ lastSnapTime = std::chrono::steady_clock::now();
         
 ----
 
-=== Stop and end the acquisition
+=== Release the framegrabber and close the stream
 
 Since taking a snapshot leaves the device in a stopped state, we do not need to stop the acquisition. However, we release the frame grabber
 
@@ -771,7 +755,9 @@ visionaryControl->logout();
 **Python**
 [source,python]
 ----
-device_control.logout()
+# Reset the image acquisition to default mode
+    device_control.setFrontendMode(FrontendMode.Continuous)
+    device_control.logout()
     device_control.close()
     
 ----
@@ -980,14 +966,7 @@ device_control.logout()
 
 === Create a frame grabber and wait for images to be triggered
 
-As described above for the other operation modes, we create a frame grabber instance after a short delay to give the device time to process the configuration changes.
-
-**C++**
-[source,c++]
-----
-std::this_thread::sleep_for(std::chrono::milliseconds(100));
-  
-----
+As described above for the other operation modes, we first create a frame grabber instance.
 
 **Python**
 [source,python]
@@ -1109,13 +1088,17 @@ It is accessed like this
 **C++**
 [source,c++]
 ----
-include::../shared/cpp/framewrite.cpp[tag=frame_meta_data]
+const std::uint32_t frameNumber = rDataHandler.getFrameNum();
+  const std::uint64_t timestamp   = rDataHandler.getTimestamp();
+  
 ----
 
 **Python**
 [source,python]
 ----
-include::../shared/python/framewrite.py[tag=frame_meta_data]
+config.set('frame', 'framenumber', str(data.changedCounter))
+        config.set('frame', 'timestamp', str(data.parsing_time_s))
+        
 ----
 
 
@@ -1126,13 +1109,17 @@ You can access the frame geometry either using
 **C++**
 [source,c++]
 ----
-include::../shared/cpp/framewrite.cpp[tag=frame_geometry]
+const int width  = rDataHandler.getWidth();
+  const int height = rDataHandler.getHeight();
+  
 ----
 
 **Python**
 [source,python]
 ----
-include::../shared/python/framewrite.py[tag=frame_geometry]
+config.set('frame', 'width', str(data.xmlParser.imageWidth))
+        config.set('frame', 'height', str(data.xmlParser.imageHeight))
+        
 ----
 
 which is a shortcut for
@@ -1156,20 +1143,30 @@ after obtaining the camera parameter structure
 **C++**
 [source,c++]
 ----
-include::../shared/cpp/framewrite.cpp[tag=camera_data]
+const visionary::CameraParameters& rCameraParameters = rDataHandler.getCameraParameters();
+  
 ----
 
 This structure also gives access to the intrinsic camera parameters,
 
 [source,c++]
 ----
-include::../shared/cpp/framewrite.cpp[tag=intrinsics]
+const double cx = rCameraParameters.cx;
+  const double cy = rCameraParameters.cy;
+  const double fx = rCameraParameters.fx;
+  const double fy = rCameraParameters.fy;
+  
 ----
 
 **Python**
 [source,python]
 ----
-include::../shared/python/framewrite.py[tag=intrinsics]
+config.add_section('intrinsics')
+        config.set('intrinsics', 'cx', str(data.xmlParser.cx))
+        config.set('intrinsics', 'cy', str(data.xmlParser.cy))
+        config.set('intrinsics', 'fx', str(data.xmlParser.fx))
+        config.set('intrinsics', 'fy', str(data.xmlParser.fy))
+        
 ----
 
 the lens distortion parameters,
@@ -1177,13 +1174,24 @@ the lens distortion parameters,
 **C++**
 [source,c++]
 ----
-include::../shared/cpp/framewrite.cpp[tag=lens_distortion]
+const double k1 = rCameraParameters.k1;
+  const double k2 = rCameraParameters.k2;
+  const double p1 = rCameraParameters.p1;
+  const double p2 = rCameraParameters.p2;
+  const double k3 = rCameraParameters.k3;
+  
 ----
 
 **Python**
 [source,python]
 ----
-include::../shared/python/framewrite.py[tag=lens_distortion]
+config.add_section('lensdistortion')
+        config.set('lensdistortion', 'k1', str(data.xmlParser.k1))
+        config.set('lensdistortion', 'k2', str(data.xmlParser.k2))
+        config.set('lensdistortion', 'p1', str(data.xmlParser.p1))
+        config.set('lensdistortion', 'p2', str(data.xmlParser.p2))
+        config.set('lensdistortion', 'k3', str(data.xmlParser.k3))
+        
 ----
 
 and the extrinsic camera parameters, or more specifically the transformation from the camera coordinate system to the world coordinate system defined in the device's mounting settings.
@@ -1191,13 +1199,17 @@ and the extrinsic camera parameters, or more specifically the transformation fro
 **C++**
 [source,c++]
 ----
-include::../shared/cpp/framewrite.cpp[tag=cam2world]
+const double* const pCam2worldMatrix = rCameraParameters.cam2worldMatrix;
+  
 ----
 
 **Python**
 [source,python]
 ----
-include::../shared/python/framewrite.py[tag=cam2world]
+cam2worldMatrix_str = ' '.join(
+            map(str, data.cameraParams.cam2worldMatrix))
+        config.set('cam2world', 'cam2worldMatrix', cam2worldMatrix_str)
+        
 ----
 
 For historical reasons we also have the focal to ray-cross distance value
@@ -1205,13 +1217,16 @@ For historical reasons we also have the focal to ray-cross distance value
 **C++**
 [source,c++]
 ----
-include::../shared/cpp/framewrite.cpp[tag=f2rc]
+const double f2rc = rCameraParameters.f2rc;
+  
 ----
 
 **Python**
 [source,python]
 ----
-include::../shared/python/framewrite.py[tag=f2rc]
+config.add_section('cam2world')
+        config.set('cam2world', 'f2rc', str(data.xmlParser.f2rc))
+        
 ----
 
 which is the distance along the optical axis from the focal point to the reference point, i.e. the origin of the camera coordiante system.
@@ -1231,13 +1246,40 @@ For the Visionary-S CX the map data is accessed like this
 **C++**
 [source,c++]
 ----
-include::../shared/cpp/framewrite.cpp[tag=visionary_s_maps]
+// cast to specific visionary data type
+      const VisionarySData& rVisionarySData = dynamic_cast<const VisionarySData&>(rDataHandler);
+      
 ----
 
 **Python**
 [source,python]
 ----
-include::../shared/python/framewrite.py[tag=visionary_s_maps]
+# rgba
+        rgba_data = np.uint32(np.reshape(data.depthmap.intensity, (512, 640)))
+        rgba_data = np.frombuffer(rgba_data, np.uint8)
+        rgba_data = np.reshape(rgba_data, (512, 640, 4))
+        bgra_data = cv2.cvtColor(rgba_data, cv2.COLOR_RGBA2BGRA)
+        cv2.imwrite(file_prefix + frame_prefix + "-bgra.png",
+                    bgra_data, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+        tagAndName = TagAndName("bgra", frame_prefix + "-bgra.png")
+        mapdescs.append(tagAndName)
+
+        # z
+        zmap_data = np.array(
+            data.depthmap.distance, dtype=np.uint16).reshape((height, width))
+        cv2.imwrite(file_prefix + frame_prefix + "-z.png",
+                    zmap_data, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+        tagAndName = TagAndName("z", frame_prefix + "-z.png")
+        mapdescs.append(tagAndName)
+
+        # state
+        state_data = np.array(data.depthmap.confidence,
+                              dtype=np.uint16).reshape((height, width))
+        cv2.imwrite(file_prefix + frame_prefix + "-state.png",
+                    state_data, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+        tagAndName = TagAndName("state", frame_prefix + "-state.png")
+        mapdescs.append(tagAndName)
+        
 ----
 
 and for the Visionary-T Mini CX like this
@@ -1245,13 +1287,38 @@ and for the Visionary-T Mini CX like this
 **C++**
 [source,c++]
 ----
-include::../shared/cpp/framewrite.cpp[tag=visionary_t_mini_maps]
+// cast to specific visionary data type
+      const VisionaryTMiniData& rVisionaryTMiniData = dynamic_cast<const VisionaryTMiniData&>(rDataHandler);
+      
 ----
 
 **Python**
 [source,python]
 ----
-include::../shared/python/framewrite.py[tag=visionary_t_mini_maps]
+# intensity
+        intensity_data = np.array(
+            data.depthmap.intensity, dtype=np.uint16).reshape((height, width))
+        cv2.imwrite(file_prefix + frame_prefix + "-int.png",
+                    intensity_data, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+        tagAndName = TagAndName("int", frame_prefix + "-int.png")
+        mapdescs.append(tagAndName)
+
+        # distance
+        distance_data = np.array(
+            data.depthmap.distance, dtype=np.uint16).reshape((height, width))
+        cv2.imwrite(file_prefix + frame_prefix + "-dist.png",
+                    distance_data, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+        tagAndName = TagAndName("dist", frame_prefix + "-dist.png")
+        mapdescs.append(tagAndName)
+
+        # confidence
+        confidence_data = np.array(
+            data.depthmap.confidence, dtype=np.uint16).reshape((height, width))
+        cv2.imwrite(file_prefix + frame_prefix + "-conf.png",
+                    confidence_data, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+        tagAndName = TagAndName("conf", frame_prefix + "-conf.png")
+        mapdescs.append(tagAndName)
+        
 ----
 
 
