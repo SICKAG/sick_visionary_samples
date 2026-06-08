@@ -21,14 +21,14 @@ Either build and run the samples from the top level directory as described in xr
 **Userlevels**
 [source,bash]
 ----
-cd build/
+cd build/output/
 ./login_logout -i192.168.1.10 -tVisionary-S
 ----
 
 **Change password**
 [source,bash]
 ----
-cd build/
+cd build/output/
 ./password_change -i192.168.1.10 -tVisionary-S
 ----
 
@@ -44,13 +44,13 @@ To run the Python samples, execute the following command from the **top-level di
 **Userlevels**
 [source,bash]
 ----
-python3 -m userlevels_and_passwords.python.login_logout -i192.168.1.10 -tVisionary-S
+python3 userlevels_and_passwords/python/login_logout.py -i192.168.1.10 -tVisionary-S
 ----
 
 **Change password**
 [source,bash]
 ----
-python3 -m userlevels_and_passwords.python.password_change -i192.168.1.10 -tVisionary-S
+python3 userlevels_and_passwords/python/password_change.py -i192.168.1.10 -tVisionary-S
 ----
 
 == User levels: Login and logout

@@ -10,7 +10,7 @@ import configparser
 import cv2
 import numpy as np
 
-from base.python.Streaming.Data import Data
+from python_base.Streaming.Data import Data
 
 
 class TagAndName:

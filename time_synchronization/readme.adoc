@@ -1,0 +1,351 @@
+= Time synchronization
+:toclevels: 4
+:source-highlighter: rouge
+:icons: font
+:toc:
+
+== Introduction
+
+This README gives an introduction to the C++ and Python code examples in this folder. The document describes how to synchronize the device time via two methods:
+
+- Network time protocol (NTP)
+- Precision time protocol (PTP)  
+
+[NOTE]
+====
+**Note**: These samples only work for Sick Visionary-T Mini CX (V3S105-1x). Visionary-S CX (V3S102-1x) is **not** supported.
+====
+
+== How to run the samples
+
+=== Run the NTP sample
+
+You will find the sample code in `time_synchronization/cpp/ntp_sync.cpp` and `time_synchronization/python/ntp_sync.py` respectively.
+Make sure you fullfill all <<NTP Prerequistes>> before continuing to run the sample.
+
+:relfileprefix: ../
+Either build and run the samples from the top level directory as described in xref:README.adoc#getting-started[Getting Started] or build and run the samples from the sample subdirectory using its CmakeLists.txt file.
+
+[NOTE]
+====
+Remember to adjust the command line arguments like IP address (`-i`), server IP address (`-s`), server port (`-p`), server timeout (`-t`) to match your specific setup.
+====
+
+**C++**
+
+[source,bash]
+----
+# From toplevel dir
+./time_synchronization/cpp/build/ntp_sync -i192.168.1.10 -s192.168.136.100 -p123 -t5000
+
+# From time_synchronization/cpp directory
+./build/ntp_sync -i192.168.1.10 -s192.168.136.100 -p123
+----
+
+**Python**
+[source,bash]
+----
+# From toplevel dir
+python time_synchronization/python/ntp_sync.py -i192.168.1.10 -s192.168.136.100 -p123
+----
+
+=== Run the PTP sample
+
+You will find the sample code in `time_synchronization/cpp/ptp_sync.cpp` and `time_synchronization/python/ptp_sync.py` respectively.
+Make sure you fullfill all <<PTP Prerequistes>> before continuing to run the sample.
+
+:relfileprefix: ../
+Either build and run the samples from the top level directory as described in xref:README.adoc#getting-started[Getting Started] or build and run the samples from the sample subdirectory using its CmakeLists.txt file.
+
+[NOTE]
+====
+Remember to adjust the command line argument IP address (`-i`) to match your specific setup.
+====
+
+**C++**
+
+[source,bash]
+----
+# From toplevel dir
+./time_synchronization/cpp/build/ptp_sync -i192.168.1.10
+
+# From time_synchronization/cpp directory
+./build/ptp_sync -i192.168.1.10
+----
+
+**Python**
+[source,bash]
+----
+# From toplevel dir
+python time_synchronization/python/ptp_sync.py -i192.168.1.10
+----
+
+== Network time protocol (NTP)
+
+Network Time Protocol (NTP) is a networking protocol used to synchronize the clocks of computers over a network. It ensures that all participating devices have the same time, which is crucial for time-sensitive applications and processes. NTP operates by exchanging time-stamped messages between a client and a server, allowing the client to adjust its clock based on the server's accurate time. This protocol can achieve synchronization within milliseconds over the internet and even better accuracy in local networks.
+
+=== NTP Prerequistes
+
+You need a running NTP server for this sample to work. We advice using a UNIX based system and running the standard NTP-daemon on it. Make sure the NTP server has a low stratum number, either by synchronizing it with an online NTP server or by manually setting the stratum number inside `/etc/ntp.conf` like this:
+
+[source,bash]
+----
+cat /etc/ntp.conf
+
+# Needed if the device is itself not synchronizing to an online NTP server
+# This specifies that the device functions as a stratum 2 server
+server 127.127.1.0
+fudge 127.127.1.0 stratum 2
+
+# By default, exchange time with everybody, but don't allow configuration.
+restrict -4 default kod notrap nomodify nopeer noquery limited
+restrict -6 default kod notrap nomodify nopeer noquery limited
+restrict 192.168.136.0 mask 255.255.255.0 #if the device is in this subnet
+
+# Local users may interrogate the ntp server more closely.
+restrict 127.0.0.1
+restrict ::1
+----
+
+For more information have a look at https://support.ntp.org/Support/ConfiguringNTP[ConfiguringNTP].
+
+After configuring run these commands:
+
+[source,bash]
+----
+sudo service ntp status
+sudo service ntp restart 
+# or 
+sudo service ntp stop
+sudo service ntp start
+----
+
+Now you should be able to synchronize the camera with the NTP server.
+
+=== Explanation
+
+This section opens a control channel to the device.
+
+[source,python]
+----
+device_control = Control(ip_address, cola_protocol, control_port)
+    device_control.open()
+    
+----
+
+Login to the device to gain access rights to certain methods (the examples uses the default credentials).
+
+[source,python]
+----
+# Login to the device for access rights to certain methods
+        device_control.login(Control.USERLEVEL_SERVICE, 'CUST_SERV')
+        
+----
+
+Retrieve the device's current time before synchronization.
+
+[source,python]
+----
+device_timestamp_ms = device_control.getDeviceTime()
+    device_time = datetime.fromtimestamp(device_timestamp_ms/1000, tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+    print(f"Device time before time synchronization: {device_time}")
+    
+----
+
+Make sure your NTP server is **running and connected** to the subnet. Enter 'Y' to proceed.
+
+[source,python]
+----
+# Ask user about NTP Master
+    print("Running NTP Master is connected to the network? [Y/N]")
+    user_input = input().strip().upper()
+    
+----
+
+Set the IP address of the NTP server.
+
+[source,python]
+----
+device_control.setNtpClientServerAddress(server_ip)
+        print(f"Set NTP server IP: {server_ip}")
+        
+----
+
+Set the port number for the NTP server (default is 123).
+
+[source,python]
+----
+device_control.setNtpClientServerPort(ntp_port) # default is 123
+        print(f"Set NTP port: {ntp_port}")
+        
+----
+
+Set the timeout for NTP requests.
+
+[source,python]
+----
+device_control.setNtpClientTimeout(timeout)
+        print(f"Set NTP request timeout: {timeout}")
+        
+----
+
+Enable NTP time synchronization on the device. The device should send out an NTP synchronization request to the server as soon as this variable gets enabled.
+
+[source,python]
+----
+device_control.setTimeSyncMode('NTP')
+        print("Enabled NTP time synchronization")
+        
+----
+
+We wait for 5 seconds to ensure synchronization is complete. If there's a working NTP server in the subnet this synchronization should finish immediately.
+
+[source,python]
+----
+time.sleep(5)
+        print("Waiting for 5 seconds to be on the safe side.")
+        
+----
+
+Retrieve the device's time after synchronization.
+
+[source,python]
+----
+device_timestamp_ms = device_control.getDeviceTime()
+        device_time = datetime.fromtimestamp(device_timestamp_ms/1000, tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+        print(f"Device time after time synchronization: {device_time}")
+        
+----
+
+Reset settings by disabling NTP time synchronization.
+
+[source,python]
+----
+device_control.setTimeSyncMode('NONE')
+    print("Disabled NTP time synchronization")
+    
+----
+
+Logout from the device and close the control channel.
+
+[source,python]
+----
+device_control.logout()
+    device_control.close()
+    print("Logged out. Closed connection.")
+    
+----
+
+== Precision time protocol (PTP)
+
+Precision Time Protocol (PTP) is a protocol used to synchronize clocks throughout a computer network. It is designed for systems requiring high precision time synchronization, such as industrial automation, telecommunications, and financial trading systems. PTP achieves synchronization by exchanging timing messages between a master clock and slave clocks, allowing the slave clocks to adjust their time to match the master clock with sub-microsecond accuracy. This protocol is particularly useful in environments where precise timing is critical for performance and reliability.
+
+=== PTP Prerequistes
+
+To run this sample, you need a functioning PTP master. We recommend using a UNIX-based system and running ptpd — an open-source implementation of the Precision Time Protocol (PTP).
+
+Run the following command to start a PTP Master with the options:
+
+-M: Enables master mode.
+-i eth0: Specifies the network interface to use (e.g., eth0).
+-V: Enables verbose output for debugging and monitoring.
+
+[source,bash]
+----
+sudo ptpd -M -i YOUR_INTERFACE -V
+----
+
+=== Explanation
+
+This section opens a control channel to the device.
+
+[source,python]
+----
+device_control = Control(ip_address, cola_protocol, control_port)
+    device_control.open()
+    
+----
+
+Login to the device to gain access rights to certain methods.
+
+[source,python]
+----
+device_control.login(Control.USERLEVEL_SERVICE, 'CUST_SERV')
+        
+----
+
+Retrieve the device's current time before synchronization.
+
+[source,python]
+----
+device_timestamp_ms = device_control.getDeviceTime()
+    device_time = datetime.fromtimestamp(device_timestamp_ms / 1000, tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+    print(f"Device time before time synchronization: {device_time}")
+    
+----
+
+Make sure your PTP server is **running and connected** to the subnet. Enter 'Y' to proceed.
+
+[source,python]
+----
+# Ask user about PTP Master
+    print("Running PTP Master is connected to the network? [Y/N]")
+    user_input = input().strip().upper()
+    
+----
+
+Set the device to act as a PTP-Slave.
+
+[source,python]
+----
+device_control.setPtpMode("SLAVE")
+        print("Set PTP Mode: SLAVE")
+        
+----
+
+Enable PTP time synchronization on the device. The device should send out an PTP synchronization request to the PTP-Master as soon as this variable gets enabled.
+
+[source,python]
+----
+device_control.setTimeSyncMode('PTP')
+        print("Enabled PTP time synchronization")
+        
+----
+
+We wait for 5 seconds to ensure synchronization is complete. If there's a working PTP master in the subnet this synchronization should finish immediately.
+
+[source,python]
+----
+print("Waiting for 5 seconds to be on the safe side.")
+        time.sleep(5)
+        
+----
+
+Retrieve the device's time after synchronization.
+
+[source,python]
+----
+device_timestamp_ms = device_control.getDeviceTime()
+        device_time = datetime.fromtimestamp(device_timestamp_ms/1000, tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+        print(f"Device time after time synchronization: {device_time}")
+        
+----
+
+Reset settings by disabling PTP time synchronization.
+
+[source,python]
+----
+device_control.login(Control.USERLEVEL_SERVICE, 'CUST_SERV')
+    device_control.setTimeSyncMode('NONE')
+    print("Disabled PTP (timeSyncMode)")
+    
+----
+
+Logout from the device and close the control channel.
+
+[source,python]
+----
+device_control.logout()
+    device_control.close()
+    
+----

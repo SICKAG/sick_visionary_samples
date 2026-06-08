@@ -7,6 +7,78 @@
 #include <sick_visionary_cpp_base/VisionaryEndian.h>
 
 namespace visionary {
+bool receiveCompleteUdpBlob(NetLink&                udpSocket,
+                            ITransport::ByteBuffer& completeBlob,
+                            std::uint16_t&          blobNumber,
+                            bool&                   missingFragmentsDetected,
+                            bool                    dummyFrame)
+{
+  ITransport::ByteBuffer buffer;
+  std::size_t            maxBytesToReceive = 1500; // Typical MTU size for UDP for Visionary-T Mini
+
+  missingFragmentsDetected = false;
+  blobNumber               = 0;
+  completeBlob.clear();
+
+  buffer.resize(maxBytesToReceive);
+  udpSocket.read(buffer);
+
+  if (dummyFrame)
+  {
+    // Just drain packets until the FIN flag is set, no reassembly needed.
+    while (buffer[6] != 0x80)
+      udpSocket.read(buffer);
+    return true;
+  }
+
+  blobNumber = (static_cast<std::uint16_t>(buffer[0]) << 8) | buffer[1];
+  std::cout << "========== New BLOB received =========="
+            << "\n";
+  std::cout << "Blob number: " << blobNumber << "\n";
+
+  std::map<std::uint16_t, ITransport::ByteBuffer> fragmentMap;
+  std::uint16_t                                   lastFragmentNumber = 0;
+
+  while (buffer[6] != 0x80)
+  {
+    const std::uint16_t fragmentNumber = (static_cast<std::uint16_t>(buffer[2]) << 8) | buffer[3];
+    if (lastFragmentNumber != 0 && fragmentNumber - lastFragmentNumber > 1)
+    {
+      std::cout << "Potentially out-of-order/lost fragments between IDs: " << lastFragmentNumber << " "
+                << fragmentNumber << "\n";
+    }
+    lastFragmentNumber = fragmentNumber;
+
+    ITransport::ByteBuffer fragment(
+      buffer.begin() + 14, buffer.end() - 1); // Payload begins at byte index 14, last element contains checksum
+    fragmentMap[fragmentNumber] = fragment;
+
+    udpSocket.read(buffer);
+  }
+
+  const std::uint16_t    fragmentNumber = (static_cast<std::uint16_t>(buffer[2]) << 8) | buffer[3];
+  ITransport::ByteBuffer lastFragment(
+    buffer.begin() + 14, buffer.end() - 1); // Payload begins at byte index 14, last element contains checksum
+  fragmentMap[fragmentNumber] = lastFragment;
+
+  if (fragmentMap.size() > 1)
+  {
+    auto previous = fragmentMap.begin();
+    for (auto current = std::next(previous); current != fragmentMap.end(); ++current)
+    {
+      if (current->first != static_cast<std::uint16_t>(previous->first + 1))
+      {
+        missingFragmentsDetected = true;
+        break;
+      }
+      previous = current;
+    }
+  }
+
+  completeBlob = reassembleFragments(fragmentMap);
+  return true;
+}
+
 ITransport::ByteBuffer reassembleFragments(const std::map<std::uint16_t, ITransport::ByteBuffer>& fragmentMap)
 {
   ITransport::ByteBuffer completeBlob;
@@ -16,7 +88,6 @@ ITransport::ByteBuffer reassembleFragments(const std::map<std::uint16_t, ITransp
   {
     completeBlob.insert(completeBlob.end(), it->second.begin(), it->second.end());
   }
-  std::cout << "Reassembled frame from fragments\n" << "\n";
   return completeBlob;
 }
 
@@ -26,7 +97,8 @@ bool parseSegmBinaryData(std::vector<std::uint8_t>::iterator itBuf,
 {
   if (m_dataHandler == nullptr)
   {
-    std::cout << "No datahandler is set -> cant parse blob data" << "\n";
+    std::cout << "No datahandler is set -> cant parse blob data"
+              << "\n";
     return false;
   }
   bool result               = false;
@@ -36,7 +108,8 @@ bool parseSegmBinaryData(std::vector<std::uint8_t>::iterator itBuf,
 
   if (remainingSize < 4)
   {
-    std::cout << "Received not enough data to parse segment description. Connection issues?" << "\n";
+    std::cout << "Received not enough data to parse segment description. Connection issues?"
+              << "\n";
     return false;
   }
 
@@ -55,12 +128,14 @@ bool parseSegmBinaryData(std::vector<std::uint8_t>::iterator itBuf,
   const std::size_t totalSegmentDescriptionSize     = static_cast<std::size_t>(numSegments * segmentDescriptionSize);
   if (remainingSize < totalSegmentDescriptionSize)
   {
-    std::cout << "Received not enough data to parse segment description. Connection issues?" << "\n";
+    std::cout << "Received not enough data to parse segment description. Connection issues?"
+              << "\n";
     return false;
   }
   if (numSegments < 3)
   {
-    std::cout << "Invalid number of segments. Connection issues?" << "\n";
+    std::cout << "Invalid number of segments. Connection issues?"
+              << "\n";
     return false;
   }
   for (std::uint16_t i = 0; i < numSegments; i++)
@@ -78,7 +153,8 @@ bool parseSegmBinaryData(std::vector<std::uint8_t>::iterator itBuf,
 
   if (remainingSize < xmlSize)
   {
-    std::cout << "Received not enough data to parse xml Description. Connection issues?" << "\n";
+    std::cout << "Received not enough data to parse xml Description. Connection issues?"
+              << "\n";
     return false;
   }
   remainingSize -= xmlSize;
@@ -93,7 +169,8 @@ bool parseSegmBinaryData(std::vector<std::uint8_t>::iterator itBuf,
 
     if (remainingSize < binarySegmentSize)
     {
-      std::cout << "Received not enough data to parse binary Segment. Connection issues?" << "\n";
+      std::cout << "Received not enough data to parse binary Segment. Connection issues?"
+                << "\n";
       return false;
     }
     result = m_dataHandler->parseBinaryData((itBuf + static_cast<ItBufDifferenceType>(offset[1])), binarySegmentSize);
@@ -108,7 +185,8 @@ bool parseUdpBlob(std::vector<std::uint8_t> buffer, std::shared_ptr<VisionaryDat
 
   if (packageLength < 3u)
   {
-    std::cout << "Invalid package length " << packageLength << ". Should be at least 3" << "\n";
+    std::cout << "Invalid package length " << packageLength << ". Should be at least 3"
+              << "\n";
     return false;
   }
 
@@ -117,12 +195,14 @@ bool parseUdpBlob(std::vector<std::uint8_t> buffer, std::shared_ptr<VisionaryDat
   const auto packetType      = readUnalignBigEndian<std::uint8_t>(buffer.data() + 10);
   if (protocolVersion != 0x001)
   {
-    std::cout << "Received unknown protocol version " << protocolVersion << "." << "\n";
+    std::cout << "Received unknown protocol version " << protocolVersion << "."
+              << "\n";
     return false;
   }
   if (packetType != 0x62)
   {
-    std::cout << "Received unknown packet type " << packetType << "." << "\n";
+    std::cout << "Received unknown packet type " << packetType << "."
+              << "\n";
     return false;
   }
 

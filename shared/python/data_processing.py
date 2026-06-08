@@ -1,14 +1,15 @@
 import os
 import time
 
-from base.python.PointCloud.PointCloud import (convertToPointCloud,
-                                               convertToPointCloudOptimized,
+from python_base.PointCloud.PointCloud import (convertToPointCloudOptimized,
                                                writePointCloudToPCD,
                                                writePointCloudToPLY)
 from shared.python.framewrite import writeFrame
 
 
-def processSensorData(sensor_data, device_type, img_dir, output_prefix, pcl_dir, write_files=True):
+def processSensorData(sensor_data, device_type, img_dir, output_prefix, pcl_dir,
+                      write_files=True, pointcloud_binary=False,
+                      pointcloud_output="pcd"):
     """
     Processes sensor data to extract and convert depth map information, and optionally writes the data to files.
 
@@ -17,8 +18,8 @@ def processSensorData(sensor_data, device_type, img_dir, output_prefix, pcl_dir,
     2. Checks if the sensor data contains a depth map.
     3. If depth map data is present and `write_files` is True:
        - Writes the depth map as a PNG file.
-       - Converts the depth map to a point cloud using both non-optimized and optimized methods.
-       - Writes the resulting point clouds to PLY and PCD files respectively.
+    - Converts the depth map to an optimized point cloud.
+         - Writes the resulting point cloud to PCD, PLY, or both.
 
     Args:
         sensor_data (Data.Data): The sensor data object containing depth map and other information.
@@ -27,6 +28,10 @@ def processSensorData(sensor_data, device_type, img_dir, output_prefix, pcl_dir,
         output_prefix (str): Prefix for output file names.
         pcl_dir (str): Directory to save point cloud files.
         write_files (bool, optional): Flag to indicate whether to write files. Defaults to True.
+        pointcloud_binary (bool, optional): Write point cloud files in binary mode if True, ASCII mode if False.
+            Applies to PCD and PLY. Defaults to False.
+        pointcloud_output (str, optional): Which point cloud files to write: "pcd", "ply", or "both".
+            Defaults to "pcd".
 
     Returns:
         None
@@ -39,25 +44,11 @@ def processSensorData(sensor_data, device_type, img_dir, output_prefix, pcl_dir,
         print("Data contains depth map data")
 
         if write_files:
-            print("=== Write PNG file: Frame number: {}".format(frame_number))
+            print("Write PNG file: Frame number: {}".format(frame_number))
             writeFrame(device_type, sensor_data,
                        os.path.join(img_dir, output_prefix))
-            print("=== Converting image to pointcloud")
+            print("Converting image to pointcloud")
 
-            # Non optimized
-            start_time = time.time()
-            world_coordinates, dist_data = convertToPointCloud(
-                sensor_data.depthmap.distance,
-                sensor_data.depthmap.intensity,
-                sensor_data.depthmap.confidence,
-                sensor_data.cameraParams,
-                sensor_data.xmlParser.stereo
-            )
-            end_time = time.time()
-            execution_time = end_time - start_time
-            print(f"convertToPointCloud took: {execution_time:.3}s")
-
-            # Optimized
             is_stereo = True if device_type == "Visionary-S" else False
             start_time = time.time()
             point_cloud = convertToPointCloudOptimized(
@@ -70,10 +61,22 @@ def processSensorData(sensor_data, device_type, img_dir, output_prefix, pcl_dir,
             execution_time = end_time - start_time
             print(f"convertToPointCloudOptimized took: {execution_time:.3}s")
 
-            # Write output of the non optimized function to PLY
-            writePointCloudToPLY(os.path.join(
-                pcl_dir, "world_coordinates{}.ply".format(frame_number)), world_coordinates)
+            point_cloud_flat = point_cloud.reshape(-1, point_cloud.shape[-1])
 
-            # Write output of the optimized function to PCD
-            writePointCloudToPCD(os.path.join(
-                pcl_dir, "world_coordinates{}.pcd".format(frame_number)), point_cloud.reshape(-1, point_cloud.shape[-1]))
+            if pointcloud_output in ("pcd", "both"):
+                start_time = time.time()
+                writePointCloudToPCD(
+                    os.path.join(pcl_dir, "world_coordinates{}.pcd".format(frame_number)),
+                    point_cloud_flat,
+                    binary=pointcloud_binary)
+                print_mode = "binary" if pointcloud_binary else "ascii"
+                print(f"writePointCloudToPCD ({print_mode}) took: {time.time() - start_time:.3}s")
+
+            if pointcloud_output in ("ply", "both"):
+                start_time = time.time()
+                writePointCloudToPLY(
+                    os.path.join(pcl_dir, "world_coordinates{}.ply".format(frame_number)),
+                    point_cloud_flat,
+                    binary=pointcloud_binary)
+                print_mode = "binary" if pointcloud_binary else "ascii"
+                print(f"writePointCloudToPLY ({print_mode}) took: {time.time() - start_time:.3}s")

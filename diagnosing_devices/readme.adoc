@@ -32,14 +32,14 @@ Either build and run the samples from the top level directory as described in xr
 **System log**
 [source,bash]
 ----
-cd build/
+cd build/output/
 ./system_log -i192.168.1.10 -dVisionary-S
 ----
 
 **Diagnosing devices**
 [source,bash]
 ----
-cd build/
+cd build/output/
 ./device_state -i192.168.1.10 -dVisionary-S
 ----
 
@@ -55,19 +55,19 @@ To run the Python samples, execute the following command from the **top-level di
 **System log**
 [source,bash]
 ----
-python3 -m diagnosing_devices.python.system_log -i192.168.1.10 -dVisionary-S
+python3 diagnosing_devices/python/system_log.py -i192.168.1.10 -dVisionary-S
 ----
 
 **Diagnosing devices**
 [source,bash]
 ----
-python3 -m diagnosing_devices.python.device_state -i192.168.1.10 -dVisionary-S
+python3 diagnosing_devices/python/device_state.py -i192.168.1.10 -dVisionary-S
 ----
 
 **Diagnosing devices extended**
 [source,bash]
 ----
-python3 -m diagnosing_devices.python.device_state_extended -i192.168.1.10 -dVisionary-S
+python3 diagnosing_devices/python/device_state_extended.py -i192.168.1.10 -dVisionary-S
 ----
 
 == System log

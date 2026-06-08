@@ -9,18 +9,21 @@ import argparse
 import os
 import time
 
-from base.python.Control import Control
-from base.python.Stream import Streaming
-from base.python.Streaming import Data
-from base.python.Streaming.BlobServerConfiguration import BlobClientConfig
+from python_base.Control import Control
+from python_base.Stream import Streaming
+from python_base.Streaming import Data
+from python_base.Streaming.BlobServerConfiguration import BlobClientConfig
 from shared.python.data_processing import processSensorData
 from shared.python.devices_config import get_device_config
-from base.python.Usertypes import FrontendMode
+from shared.python.frame_buffer_limits import (estimate_frame_size,
+                                               get_safe_buffer_limit)
+from python_base.Usertypes import FrontendMode
 
 
 def runSnapshotsDemo(ip_address: str, transport_protocol: str, receiver_ip: str,
                      cola_protocol: str, control_port: int, streaming_port: int, device_type: str,
-                     number_frames: int, output_prefix: str, poll_period_ms: int, write_files: bool):
+                     number_frames: int, output_prefix: str, poll_period_ms: int, write_files: bool,
+                     pointcloud_binary: bool, pointcloud_output: str):
     pcl_dir = None
     img_dir = None
     if write_files:
@@ -81,17 +84,23 @@ def runSnapshotsDemo(ip_address: str, transport_protocol: str, receiver_ip: str,
     # logout after settings have been done
     device_control.logout()
 
+    sensor_data = Data.Data()
+    captured_frames = []
+    safe_buffer_limit = number_frames
+    memory_limit_checked = False
+    memory_limit_applied = False
+
     # tag::avoid_overrun[]
     poll_period_span = poll_period_ms / 1000.0  # Convert milliseconds to seconds
     last_snap_time = time.time()
     # end::avoid_overrun[]
 
-    sensor_data = Data.Data()
-
-    # trigger dummy snapshot acquistion to restart frontend 
-    # (a stopped frontend needs to warm up for 16 frames to achieve specified TOF precision, these frames will be dropped internally)
-    device_control.singleStep()
-    streaming_device.getFrame()
+    # trigger and drop one dummy snapshot only for Visionary-T Mini
+    # (a stopped frontend needs to warm up for 16 frames to achieve specified TOF precision,
+    # these frames will be dropped internally)
+    if device_type == "Visionary-T Mini":
+        device_control.singleStep()
+        streaming_device.getFrame()
 
     # acquire a single snapshot
     for i in range(number_frames):
@@ -112,10 +121,38 @@ def runSnapshotsDemo(ip_address: str, transport_protocol: str, receiver_ip: str,
         device_control.singleStep()
         streaming_device.getFrame()
         whole_frame = streaming_device.frame
-        sensor_data.read(whole_frame, convertToMM=False)
-        processSensorData(sensor_data, device_type,
-                          img_dir, output_prefix, pcl_dir, write_files)
+        print("Received frame number: {}".format(i + 1))
+        if whole_frame is None:
+            continue
+        if hasattr(whole_frame, "copy"):
+            frame_copy = whole_frame.copy()
+        else:
+            frame_copy = bytes(whole_frame)
+
+        captured_frames.append(frame_copy)
+
+        if not memory_limit_checked:
+            safe_buffer_limit = get_safe_buffer_limit(number_frames, estimate_frame_size(frame_copy))
+            memory_limit_checked = True
+            memory_limit_applied = safe_buffer_limit < number_frames
+            if memory_limit_applied:
+                print("Limiting buffered capture to {} frames to avoid excessive RAM usage.".format(
+                    safe_buffer_limit))
+
+        if memory_limit_applied and len(captured_frames) >= safe_buffer_limit:
+            print("Stopping capture after {} buffered frames because the safe in-memory limit was reached.".format(
+                safe_buffer_limit))
+            break
         # end::acquire_snapshots[]
+
+    if write_files:
+        for frame_counter, frame in enumerate(captured_frames, start=1):
+            print("====================================")
+            print("Processing frame number: {}".format(frame_counter))
+            sensor_data.read(frame, convertToMM=False)
+            processSensorData(sensor_data, device_type,
+                              img_dir, output_prefix, pcl_dir, write_files,
+                              pointcloud_binary, pointcloud_output)
 
     # tag::close_streaming[]
     device_control.login(Control.USERLEVEL_AUTH_CLIENT, 'CLIENT')
@@ -138,7 +175,7 @@ def runSnapshotsDemo(ip_address: str, transport_protocol: str, receiver_ip: str,
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="This script demonstrates how to read system health variables.")
+        description="This script demonstrates how to acquire single snapshots from a device using TCP or UDP streaming.")
     parser.add_argument('-i', '--ipAddress', required=False, type=str,
                         default="192.168.1.10", help="The ip address of the device.")
     parser.add_argument('-t', '--transport_protocol', required=False, choices=['TCP', 'UDP'],
@@ -158,12 +195,18 @@ if __name__ == "__main__":
                         help="prefix for the output files.")
     parser.add_argument('-w', "--write_files", required=False, type=str, choices=["True", "False"],
                         default="True", help="Write the files to storage if True.")
+    parser.add_argument('--pointcloud_format', required=False, type=str, choices=['ascii', 'binary'],
+                        default='ascii', help="Point cloud format for PCD/PLY: ascii or binary.")
+    parser.add_argument('--pointcloud_output', required=False, type=str, choices=['pcd', 'ply', 'both'],
+                        default='pcd', help="Point cloud output type: pcd, ply, or both.")
     args = parser.parse_args()
 
     cola_protocol, control_port, _ = get_device_config(args.device_type)
 
     write_files = True if args.write_files == "True" else False
+    pointcloud_binary = True if args.pointcloud_format == "binary" else False
 
     runSnapshotsDemo(args.ipAddress, args.transport_protocol, args.receiver_ip,
                      cola_protocol, control_port, args.streaming_port, args.device_type,
-                     args.count, args.output_prefix, args.poll_period_ms, write_files)
+                     args.count, args.output_prefix, args.poll_period_ms, write_files,
+                     pointcloud_binary, args.pointcloud_output)

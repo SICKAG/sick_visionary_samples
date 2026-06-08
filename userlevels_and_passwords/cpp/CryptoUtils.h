@@ -19,7 +19,8 @@ std::vector<uint8_t> calcSHA256Hash(const std::string& input)
 
   if (!hash)
   {
-    std::cerr << "Error creating SHA-256 hash function." << "\n";
+    std::cerr << "Error creating SHA-256 hash function."
+              << "\n";
     return std::vector<uint8_t>();
   }
 

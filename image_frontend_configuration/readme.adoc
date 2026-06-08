@@ -42,21 +42,21 @@ Either build and run the samples from the top level directory as described in xr
 **Visionary-S frontend configuration**
 [source,bash]
 ----
-cd build/
+cd build/output/
 ./visionary_s_frontend_config -i192.168.1.10
 ----
 
 **Visionary-T Mini frontend configuration**
 [source,bash]
 ----
-cd build/
+cd build/output/
 ./visionary_t_mini_frontend_config -i192.168.1.10
 ----
 
 **Save permanently**
 [source,bash]
 ----
-cd build/
+cd build/output/
 ./save_permanently -i192.168.1.10 -dVisionary-S
 ----
 
@@ -72,19 +72,19 @@ To run the Python samples, execute the following command from the **top-level di
 **Visionary-S frontend configuration**
 [source,bash]
 ----
-python3 -m image_frontend_configuration.python.visionary_s_frontend_config -i192.168.1.10
+python3 image_frontend_configuration/python/visionary_s_frontend_config.py -i192.168.1.10
 ----
 
 **Visionary-T Mini frontend configuration**
 [source,bash]
 ----
-python3 -m image_frontend_configuration.python.visionary_t_mini_frontend_config -i192.168.1.10
+python3 image_frontend_configuration/python/visionary_t_mini_frontend_config.py -i192.168.1.10
 ----
 
 **Save permanently**
 [source,bash]
 ----
-python3 -m image_frontend_configuration.python.save_permanently -i192.168.1.10 -dVisionary-S
+python3 image_frontend_configuration/python/save_permanently.py -i192.168.1.10 -dVisionary-S
 ----
 
 == Visionary-S specific frontend configuration

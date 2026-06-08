@@ -6,3 +6,5 @@ build/
 *.png
 VisionaryImages/
 VisionaryToPointCloud/
+.venv*
+*.egg-info/

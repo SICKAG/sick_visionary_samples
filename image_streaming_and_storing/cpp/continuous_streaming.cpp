@@ -103,8 +103,10 @@ static ExitCode runContinuousStreamingDemo(visionary::VisionaryType visionaryTyp
   visionaryControl->logout();
   // end::start_acquisition[]
 
-  std::shared_ptr<VisionaryData>    pDataHandler  = nullptr;
-  std::unique_ptr<FrameGrabberBase> pFrameGrabber = nullptr;
+  std::shared_ptr<VisionaryData>              pDataHandler  = nullptr;
+  std::unique_ptr<FrameGrabberBase>           pFrameGrabber = nullptr;
+  std::vector<std::shared_ptr<VisionaryData>> acquiredFrames;
+  acquiredFrames.reserve(numberOfFrames);
 
   if (transportProtocol == "TCP")
   {
@@ -115,9 +117,27 @@ static ExitCode runContinuousStreamingDemo(visionary::VisionaryType visionaryTyp
     pDataHandler  = visionaryControl->createDataHandler();
     // end::create_frame_grabber[]
   }
+  // handle and drop one dummy frame only for Visionary-T Mini
+  // (frontend needs to warm up to achieve specified TOF precision)
+  if (visionaryType == VisionaryType::eVisionaryTMini)
+  {
+    if (transportProtocol == "TCP")
+    {
+      if (!pFrameGrabber->genGetNextFrame(pDataHandler, false, std::chrono::milliseconds(2000)))
+        std::fprintf(stderr, "get next frame timeout");
+    }
+    else if (transportProtocol == "UDP")
+    {
+      ITransport::ByteBuffer completeBlob;
+      std::uint16_t          blobNumber               = 0;
+      bool                   missingFragmentsDetected = false;
+
+      receiveCompleteUdpBlob(*udpSocket, completeBlob, blobNumber, missingFragmentsDetected, true);
+    }
+  }
 
   //-----------------------------------------------
-  
+
   for (unsigned i = 0u; i < numberOfFrames; ++i)
   {
     // tag::tcp_acquisition[]
@@ -136,25 +156,8 @@ static ExitCode runContinuousStreamingDemo(visionary::VisionaryType visionaryTyp
         std::printf("Frame received in continuous mode, frame #%" PRIu32 "\n", pDataHandler->getFrameNum());
         if (storeData)
         {
-          // write the frame to disk
-          writeFrame(visionaryType, *pDataHandler, filePrefix);
-
-          // Convert data to a point cloud
-          std::vector<PointXYZ> pointCloud;
-          pDataHandler->generatePointCloud(pointCloud);
-          pDataHandler->transformPointCloud(pointCloud);
-
-          // Write point cloud to PLY
-          const std::string framePrefix  = std::to_string(pDataHandler->getFrameNum());
-          std::string       plyFilePath  = framePrefix + "-pointcloud.ply";
-          const char*       cPlyFilePath = plyFilePath.c_str();
-          std::printf("Writing frame to %s\n", cPlyFilePath);
-
-          if (visionaryType == VisionaryType::eVisionaryS)
-            PointCloudPlyWriter::WriteFormatPLY(cPlyFilePath, pointCloud, pDataHandler->getRGBAMap(), true);
-          else
-            PointCloudPlyWriter::WriteFormatPLY(cPlyFilePath, pointCloud, pDataHandler->getIntensityMap(), true);
-          std::printf("Finished writing frame to %s\n", cPlyFilePath);
+          acquiredFrames.push_back(pDataHandler);
+          pDataHandler = visionaryControl->createDataHandler();
         }
       }
     }
@@ -164,67 +167,63 @@ static ExitCode runContinuousStreamingDemo(visionary::VisionaryType visionaryTyp
       // tag::udp_acquisition[]
       pDataHandler = visionaryControl->createDataHandler();
 
-      std::map<std::uint16_t, ITransport::ByteBuffer> fragmentMap;
-      ITransport::ByteBuffer                          buffer;
-      int                                             received;
-      std::size_t                                     maxBytesToReceive = 1024;
-      std::uint16_t                                   lastFrameNum      = 0;
+      ITransport::ByteBuffer completeBlob;
+      std::uint16_t          blobNumber            = 0;
+      bool                   lostFragmentsDetected = false;
 
-      // Receive from UDP Socket
-      buffer.resize(maxBytesToReceive);
-      received = udpSocket->read(buffer);
-
-      std::cout << "========== new BLOB received ==========" << "\n";
-      std::cout << "Blob number: " << ((buffer[0] << 8) | buffer[1]) << "\n";
-      std::cout << "server IP: " << ipAddress << "\n";
-      std::cout << "========================================" << "\n";
-
-      // FIN Flag of Statemap in header is set when new BLOB begins
-      while (buffer[6] != 0x80)
+      const bool receivedBlob = receiveCompleteUdpBlob(*udpSocket, completeBlob, blobNumber, lostFragmentsDetected);
+      if (!receivedBlob)
       {
-        std::uint16_t fragmentNumber = (static_cast<std::uint16_t>(buffer[2]) << 8) | buffer[3];
-        if (fragmentNumber - lastFrameNum > 1)
-          printf(
-            "Lost %d frames between Frames: %d %d \n", fragmentNumber - lastFrameNum, lastFrameNum, fragmentNumber);
-        lastFrameNum = fragmentNumber;
-        ITransport::ByteBuffer fragment(
-          buffer.begin() + 14, buffer.end() - 1); // Payload begins at byteindex 14, Last element contains checksum
-        fragmentMap[fragmentNumber] = fragment;
-        received                    = udpSocket->read(buffer);
+        std::fprintf(stderr, "Skipping invalid UDP BLOB for requested frame index %u.\n", i);
+        continue;
       }
-      int                    fragmentNumber = (buffer[2] << 8) | buffer[3];
-      ITransport::ByteBuffer last_fragment(buffer.begin() + 14, buffer.end() - 1);
-      fragmentMap[fragmentNumber] = last_fragment;
 
-      auto completeBlob = reassembleFragments(fragmentMap);
+      if (lostFragmentsDetected)
+      {
+        std::fprintf(stderr, "Skipping UDP BLOB with missing fragments for requested frame index %u.\n", i);
+        continue;
+      }
 
-      parseUdpBlob(completeBlob, pDataHandler);
+      const bool parseOk = parseUdpBlob(completeBlob, pDataHandler);
+      if (!parseOk)
+      {
+        std::fprintf(stderr, "Skipping incomplete/invalid UDP BLOB for requested frame index %u.\n", i);
+        continue;
+      }
       // end::udp_acquisition[]
 
-      std::printf("Frame received in continuous mode, frame #%" PRIu32 "\n", pDataHandler->getFrameNum());
+      std::printf("Frame #%" PRIu32 "\n", pDataHandler->getFrameNum());
 
       if (storeData)
       {
-        // write the frame to disk
-        writeFrame(visionaryType, *pDataHandler, filePrefix);
-
-        // Convert data to a point cloud
-        std::vector<PointXYZ> pointCloud;
-        pDataHandler->generatePointCloud(pointCloud);
-        pDataHandler->transformPointCloud(pointCloud);
-
-        // Write point cloud to PLY
-        const std::string framePrefix  = std::to_string(pDataHandler->getFrameNum());
-        std::string       plyFilePath  = framePrefix + "-pointcloud.ply";
-        const char*       cPlyFilePath = plyFilePath.c_str();
-        std::printf("Writing frame to %s\n", cPlyFilePath);
-
-        if (visionaryType == VisionaryType::eVisionaryS)
-          PointCloudPlyWriter::WriteFormatPLY(cPlyFilePath, pointCloud, pDataHandler->getRGBAMap(), true);
-        else
-          PointCloudPlyWriter::WriteFormatPLY(cPlyFilePath, pointCloud, pDataHandler->getIntensityMap(), true);
-        std::printf("Finished writing frame to %s\n", cPlyFilePath);
+        acquiredFrames.push_back(pDataHandler);
       }
+    }
+  }
+
+  if (storeData)
+  {
+    for (const auto& frameData : acquiredFrames)
+    {
+      // write the frame to disk
+      writeFrame(visionaryType, *frameData, filePrefix);
+
+      // Convert data to a point cloud
+      std::vector<PointXYZ> pointCloud;
+      frameData->generatePointCloud(pointCloud);
+      frameData->transformPointCloud(pointCloud);
+
+      // Write point cloud to PLY
+      const std::string framePrefix  = std::to_string(frameData->getFrameNum());
+      std::string       plyFilePath  = framePrefix + "-pointcloud.ply";
+      const char*       cPlyFilePath = plyFilePath.c_str();
+      std::printf("Writing frame to %s\n", cPlyFilePath);
+
+      if (visionaryType == VisionaryType::eVisionaryS)
+        PointCloudPlyWriter::WriteFormatPLY(cPlyFilePath, pointCloud, frameData->getRGBAMap(), true);
+      else
+        PointCloudPlyWriter::WriteFormatPLY(cPlyFilePath, pointCloud, frameData->getIntensityMap(), true);
+      std::printf("Finished writing frame to %s\n", cPlyFilePath);
     }
   }
 
@@ -237,7 +236,7 @@ static ExitCode runContinuousStreamingDemo(visionary::VisionaryType visionaryTyp
     pFrameGrabber.reset();
     // end::release_frame_grabber[]
   }
-  
+
   if (transportProtocol == "UDP")
   {
     visionaryControl->login(IAuthentication::UserLevel::SERVICE, "CUST_SERV");
@@ -246,7 +245,7 @@ static ExitCode runContinuousStreamingDemo(visionary::VisionaryType visionaryTyp
     setBlobTcpPort(visionaryControl, 2114);
     visionaryControl->logout();
   }
-  
+
   // tag::close_control_channel[]
   visionaryControl->close();
   // end::close_control_channel[]

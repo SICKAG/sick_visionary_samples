@@ -240,6 +240,26 @@ static ExitCode runExternalTriggerDemo(visionary::VisionaryType visionaryType,
   }
   // end::create_frame_grabber[]
 
+  // handle and drop one dummy frame only for Visionary-T Mini
+  // (frontend needs to warm up to achieve specified TOF precision)
+  if (visionaryType == VisionaryType::eVisionaryTMini)
+  {
+    if (transportProtocol == "TCP")
+    {
+      // wait for first externally-triggered frame and drop it
+      while (!pFrameGrabber->genGetNextFrame(pDataHandler, false))
+        ;
+    }
+    else if (transportProtocol == "UDP")
+    {
+      ITransport::ByteBuffer completeBlob;
+      std::uint16_t          blobNumber               = 0;
+      bool                   missingFragmentsDetected = false;
+
+      receiveCompleteUdpBlob(*udpSocket, completeBlob, blobNumber, missingFragmentsDetected, true);
+    }
+  }
+
   for (unsigned i = 0; i < numberOfFrames; ++i)
   {
     std::printf("Waiting for the trigger, press ctrl-C to abort\n");
@@ -284,45 +304,32 @@ static ExitCode runExternalTriggerDemo(visionary::VisionaryType visionaryType,
     {
       pDataHandler = visionaryControl->createDataHandler();
 
-      std::map<std::uint16_t, ITransport::ByteBuffer> fragmentMap;
-      ITransport::ByteBuffer                          buffer;
-      int                                             received;
-      std::size_t                                     maxBytesToReceive = 1024;
-      std::uint16_t                                   lastFrameNum      = 0;
+      ITransport::ByteBuffer completeBlob;
+      std::uint16_t          blobNumber            = 0;
+      bool                   lostFragmentsDetected = false;
 
-      // Receive from UDP Socket
-      buffer.resize(maxBytesToReceive);
-      received = udpSocket->read(buffer);
+      const bool receivedBlob = receiveCompleteUdpBlob(*udpSocket, completeBlob, blobNumber, lostFragmentsDetected);
 
-      std::cout << "========== new BLOB received ==========" << "\n";
-      std::cout << "Blob number: " << ((buffer[0] << 8) | buffer[1]) << "\n";
-      std::cout << "server IP: " << ipAddress << "\n";
-      std::cout << "========================================" << "\n";
-
-      // FIN Flag of Statemap in header is set when new BLOB begins
-      while (buffer[6] != 0x80)
+      if (!receivedBlob)
       {
-        std::uint16_t fragmentNumber = (static_cast<std::uint16_t>(buffer[2]) << 8) | buffer[3];
-        if (fragmentNumber - lastFrameNum > 1)
-          printf(
-            "Lost %d frames between Frames: %d %d \n", fragmentNumber - lastFrameNum, lastFrameNum, fragmentNumber);
-        lastFrameNum = fragmentNumber;
-        ITransport::ByteBuffer fragment(
-          buffer.begin() + 14, buffer.end() - 1); // Payload begins at byteindex 14, Last element contains checksum
-        fragmentMap[fragmentNumber] = fragment;
-        // std::cout << "Fragment number: " << fragmentNumber << "\n";
-        received = udpSocket->read(buffer);
+        std::fprintf(stderr, "Skipping invalid UDP BLOB for requested frame index %u.\n", i);
+        continue;
       }
-      int fragmentNumber = (buffer[2] << 8) | buffer[3];
-      // std::cout << "Fragment number: " << fragmentNumber << "\n";
-      ITransport::ByteBuffer last_fragment(buffer.begin() + 14, buffer.end() - 1);
-      fragmentMap[fragmentNumber] = last_fragment;
 
-      auto completeBlob = reassembleFragments(fragmentMap);
+      if (lostFragmentsDetected)
+      {
+        std::fprintf(stderr, "Skipping UDP BLOB with missing fragments for requested frame index %u.\n", i);
+        continue;
+      }
 
-      parseUdpBlob(completeBlob, pDataHandler);
+      const bool parseOk = parseUdpBlob(completeBlob, pDataHandler);
+      if (!parseOk)
+      {
+        std::fprintf(stderr, "Skipping incomplete/invalid UDP BLOB for requested frame index %u.\n", i);
+        continue;
+      }
 
-      std::printf("Frame received in continuous mode, frame #%" PRIu32 "\n", pDataHandler->getFrameNum());
+      std::printf("Frame received in external trigger mode, frame #%" PRIu32 "\n", pDataHandler->getFrameNum());
 
       if (storeData)
       {

@@ -45,6 +45,14 @@ target_include_directories(hello_sensor
 target_link_libraries(hello_sensor
   ${VISIONARY_BASE_NAME})
 
+# reconnect sample example
+add_executable(reconnect_sample reconnect_sample.cpp)
+target_include_directories(reconnect_sample
+  PRIVATE
+    ${SHARED_PATH})
+target_link_libraries(reconnect_sample
+  ${VISIONARY_BASE_NAME})
+
 # Find sensor sample
 add_executable(find_sensor find_sensor.cpp)
 target_include_directories(find_sensor

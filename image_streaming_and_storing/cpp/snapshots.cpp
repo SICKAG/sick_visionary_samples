@@ -56,7 +56,11 @@ static ExitCode runSnapshotsDemo(visionary::VisionaryType visionaryType,
   // tag::login[]
   // Login/ logout always need to form blocks, as a login changes the camera mode to “config” (no active streaming)
   // and logging out resets the mode to “RUN” (streaming).
-  visionaryControl->login(IAuthentication::UserLevel::SERVICE, "CUST_SERV");
+  if (!visionaryControl->login(IAuthentication::UserLevel::SERVICE, "CUST_SERV"))
+  {
+    std::fprintf(stderr, "Failed to log in to device.\n");
+    return ExitCode::eAuthenticationError;
+  }
   // end::login[]
 
   std::shared_ptr<visionary::NetLink> udpSocket;
@@ -99,8 +103,6 @@ static ExitCode runSnapshotsDemo(visionary::VisionaryType visionaryType,
 
   const std::chrono::milliseconds pollPeriodSpan{pollPeriodMs};
 
-  auto lastSnapTime = std::chrono::steady_clock::now();
-
   std::shared_ptr<VisionaryData>    pDataHandler  = nullptr;
   std::unique_ptr<FrameGrabberBase> pFrameGrabber = nullptr;
 
@@ -116,10 +118,37 @@ static ExitCode runSnapshotsDemo(visionary::VisionaryType visionaryType,
     // end::create_frame_grabber[]
   }
 
-  // trigger dummy snapshot acquistion to restart frontend (a stopped frontend needs to warm up for 16 frames to achieve specified TOF precision, these frames will be dropped internally)
-  visionaryControl->stepAcquisition();
-  if(!pFrameGrabber->genGetNextFrame(pDataHandler, false, std::chrono::milliseconds(2000)))
-    std::fprintf(stderr, "get next frame timeout");
+  auto lastSnapTime = std::chrono::steady_clock::now();
+
+  // trigger dummy snapshot acquisition to restart frontend only for Visionary-T Mini
+  // (a stopped frontend needs to warm up for 16 frames to achieve specified TOF precision,
+  // these frames will be dropped internally)
+  if (visionaryType == VisionaryType::eVisionaryTMini)
+  {
+    if (!visionaryControl->stepAcquisition())
+    {
+      std::fprintf(stderr, "Failed to trigger dummy snapshot\n");
+
+      return ExitCode::eControlCommunicationError;
+    }
+
+    if (transportProtocol == "TCP")
+    {
+      if (!pFrameGrabber->genGetNextFrame(pDataHandler, false, std::chrono::milliseconds(2000)))
+      {
+        std::fprintf(stderr, "get next frame timeout");
+      }
+    }
+    // In case of UDP, the first frame will be received in the following loop, so no need to trigger a snapshot here.
+    else if (transportProtocol == "UDP")
+    {
+      ITransport::ByteBuffer completeBlob;
+      std::uint16_t          blobNumber               = 0;
+      bool                   missingFragmentsDetected = false;
+
+      receiveCompleteUdpBlob(*udpSocket, completeBlob, blobNumber, missingFragmentsDetected, true);
+    }
+  }
 
   //-----------------------------------------------
   // acquire a single snapshot
@@ -187,45 +216,32 @@ static ExitCode runSnapshotsDemo(visionary::VisionaryType visionaryType,
     {
       pDataHandler = visionaryControl->createDataHandler();
 
-      std::map<std::uint16_t, ITransport::ByteBuffer> fragmentMap;
-      ITransport::ByteBuffer                          buffer;
-      int                                             received;
-      std::size_t                                     maxBytesToReceive = 1024;
-      std::uint16_t                                   lastFrameNum      = 0;
+      ITransport::ByteBuffer completeBlob;
+      std::uint16_t          blobNumber            = 0;
+      bool                   lostFragmentsDetected = false;
 
-      // Receive from UDP Socket
-      buffer.resize(maxBytesToReceive);
-      received = udpSocket->read(buffer);
+      const bool receivedBlob = receiveCompleteUdpBlob(*udpSocket, completeBlob, blobNumber, lostFragmentsDetected);
 
-      std::cout << "========== new BLOB received ==========" << "\n";
-      std::cout << "Blob number: " << ((buffer[0] << 8) | buffer[1]) << "\n";
-      std::cout << "server IP: " << ipAddress << "\n";
-      std::cout << "========================================" << "\n";
-
-      // FIN Flag of Statemap in header is set when new BLOB begins
-      while (buffer[6] != 0x80)
+      if (!receivedBlob)
       {
-        std::uint16_t fragmentNumber = (static_cast<std::uint16_t>(buffer[2]) << 8) | buffer[3];
-        if (fragmentNumber - lastFrameNum > 1)
-          printf(
-            "Lost %d frames between Frames: %d %d \n", fragmentNumber - lastFrameNum, lastFrameNum, fragmentNumber);
-        lastFrameNum = fragmentNumber;
-        ITransport::ByteBuffer fragment(
-          buffer.begin() + 14, buffer.end() - 1); // Payload begins at byteindex 14, Last element contains checksum
-        fragmentMap[fragmentNumber] = fragment;
-        // std::cout << "Fragment number: " << fragmentNumber << "\n";
-        received = udpSocket->read(buffer);
+        std::fprintf(stderr, "Skipping invalid UDP BLOB for requested snapshot index %d.\n", i);
+        continue;
       }
-      int fragmentNumber = (buffer[2] << 8) | buffer[3];
-      // std::cout << "Fragment number: " << fragmentNumber << "\n";
-      ITransport::ByteBuffer last_fragment(buffer.begin() + 14, buffer.end() - 1);
-      fragmentMap[fragmentNumber] = last_fragment;
 
-      auto completeBlob = reassembleFragments(fragmentMap);
+      if (lostFragmentsDetected)
+      {
+        std::fprintf(stderr, "Skipping UDP BLOB with missing fragments for requested snapshot index %d.\n", i);
+        continue;
+      }
 
-      parseUdpBlob(completeBlob, pDataHandler);
+      const bool parseOk = parseUdpBlob(completeBlob, pDataHandler);
+      if (!parseOk)
+      {
+        std::fprintf(stderr, "Skipping incomplete/invalid UDP BLOB for requested snapshot index %d.\n", i);
+        continue;
+      }
 
-      std::printf("Frame received in continuous mode, frame #%" PRIu32 "\n", pDataHandler->getFrameNum());
+      std::printf("Frame received in snapshot mode, frame #%" PRIu32 "\n", pDataHandler->getFrameNum());
 
       if (storeData)
       {
@@ -247,13 +263,17 @@ static ExitCode runSnapshotsDemo(visionary::VisionaryType visionaryType,
           PointCloudPlyWriter::WriteFormatPLY(cPlyFilePath, pointCloud, pDataHandler->getRGBAMap(), true);
         else
           PointCloudPlyWriter::WriteFormatPLY(cPlyFilePath, pointCloud, pDataHandler->getIntensityMap(), true);
-        std::printf("Finished writing frame to %s\n", cPlyFilePath);
+        std::printf("Finished writing frame to %s\n\n", cPlyFilePath);
       }
     }
     // end::acquire_snapshots[]
   }
 
-  visionaryControl->login(IAuthentication::UserLevel::SERVICE, "CUST_SERV");
+  if (!visionaryControl->login(IAuthentication::UserLevel::SERVICE, "CUST_SERV"))
+  {
+    std::fprintf(stderr, "Failed to log in to device for cleanup.\n");
+    return ExitCode::eAuthenticationError;
+  }
   if (transportProtocol == "TCP")
   {
     // delete the frame grabber

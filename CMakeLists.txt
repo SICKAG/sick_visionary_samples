@@ -16,6 +16,11 @@ if(WIN32)
   set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON) # If building as shared lib on Windows
 endif()
 
+set(BUILD_SHARED_LIBS ON) #Build using shared libraries
+if (BUILD_SHARED_LIBS)
+  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/output) 
+endif()
+
 # add sample projects
 #list(APPEND CMAKE_PREFIX_PATH C:/work/dist/lib/cmake)
 #find_package(sick_visionary_cpp_base REQUIRED)
@@ -24,5 +29,6 @@ add_subdirectory(diagnosing_devices/cpp)
 add_subdirectory(finding_and_connecting_devices/cpp)
 add_subdirectory(image_frontend_configuration/cpp)
 add_subdirectory(image_streaming_and_storing/cpp)
+add_subdirectory(time_synchronization/cpp)
 add_subdirectory(userlevels_and_passwords/cpp)
 add_subdirectory(visionary_welcome/cpp)

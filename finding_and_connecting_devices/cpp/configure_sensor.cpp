@@ -36,11 +36,13 @@ static ExitCode runAssignDemo(const std::string&     destinationMac,
 
   if (successful)
   {
-    std::cout << "Successfully assigned ip address" << "\n";
+    std::cout << "Successfully assigned ip address"
+              << "\n";
     return ExitCode::eOk;
   }
 
-  std::cout << "Ip address could not be successfully assigned" << "\n";
+  std::cout << "Ip address could not be successfully assigned"
+            << "\n";
   return ExitCode::eCommunicationError;
 }
 
@@ -141,20 +143,34 @@ int main(int argc, char* argv[])
 
   if (showHelpAndExit)
   {
-    std::cout << argv[0] << " [option]*" << "\n";
-    std::cout << "where options are" << "\n";
-    std::cout << "-h            show this help and exit" << "\n";
-    std::cout << "-o<MAC>       mac address of the device to assign" << "\n";
-    std::cout << "-i<IP>        ip address of the interface on which the scan is performed." << "\n"
-              << "              It is expected to be in a CIDR manner, " << "\n"
-              << "              i.e., using ip address and the length of network prefix seperated by /. " << "\n"
-              << "              For example, -i192.168.1.100/24" << "\n"
-              << "              Note the range of prefix is [0, 32]. " << "\n";
-    std::cout << "-c<version>   cola version either  -c1 (COLA1) or -c2 (COLA2)" << "\n";
-    std::cout << "-n<IP>        new ip address of the device" << "\n";
-    std::cout << "-m<mask>      network mask of the device" << "\n";
-    std::cout << "-g<IP>        gateway of the device" << "\n";
-    std::cout << "-d            enable dhcp" << "\n";
+    std::cout << argv[0] << " [option]*"
+              << "\n";
+    std::cout << "where options are"
+              << "\n";
+    std::cout << "-h            show this help and exit"
+              << "\n";
+    std::cout << "-o<MAC>       mac address of the device to assign"
+              << "\n";
+    std::cout << "-i<IP>        ip address of the interface on which the scan is performed."
+              << "\n"
+              << "              It is expected to be in a CIDR manner, "
+              << "\n"
+              << "              i.e., using ip address and the length of network prefix seperated by /. "
+              << "\n"
+              << "              For example, -i192.168.1.100/24"
+              << "\n"
+              << "              Note the range of prefix is [0, 32]. "
+              << "\n";
+    std::cout << "-c<version>   cola version either  -c1 (COLA1) or -c2 (COLA2)"
+              << "\n";
+    std::cout << "-n<IP>        new ip address of the device"
+              << "\n";
+    std::cout << "-m<mask>      network mask of the device"
+              << "\n";
+    std::cout << "-g<IP>        gateway of the device"
+              << "\n";
+    std::cout << "-d            enable dhcp"
+              << "\n";
     std::cout << "-t<timeout>   broadcast timeout in milliseconds; default is " << DEF_BROADCAST_TIMEOUT << "\n";
 
     return static_cast<int>(exitCode);

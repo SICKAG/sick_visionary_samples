@@ -9,22 +9,26 @@ import argparse
 import os
 from time import sleep
 
-from base.python.Control import Control
-from base.python.Stream import Streaming
-from base.python.Streaming import Data
-from base.python.Streaming.BlobServerConfiguration import BlobClientConfig
-from base.python.Usertypes import (FrontendMode, InputFunctionType,
+from python_base.Control import Control
+from python_base.Stream import Streaming
+from python_base.Streaming import Data
+from python_base.Streaming.BlobServerConfiguration import BlobClientConfig
+from python_base.Usertypes import (FrontendMode, InputFunctionType,
                                    IOFunctionType)
 from shared.python.config import (Configuration, read_configuration,
                                   write_configuration)
 from shared.python.data_processing import processSensorData
 from shared.python.devices_config import get_device_config
+from shared.python.frame_buffer_limits import (estimate_frame_size,
+                                               get_safe_buffer_limit)
 from shared.python.ioports import DioPortNames
 
 
 def runExternalTriggerDemo(ip_address: str, transport_protocol: str, receiver_ip: str,
                            cola_protocol: str, control_port: int, streaming_port: int,
-                           device_type: str, count: int, output_prefix: str, port_names: DioPortNames, write_files: bool):
+                           device_type: str, count: int, output_prefix: str, port_names: DioPortNames,
+                           write_files: bool, pointcloud_binary: bool,
+                           pointcloud_output: str):
     pcl_dir = None
     img_dir = None
     if write_files:
@@ -108,9 +112,23 @@ def runExternalTriggerDemo(ip_address: str, transport_protocol: str, receiver_ip
     sleep(0.1)
     # end::precautionary_stop[]
 
+    # handle and drop one dummy frame only for Visionary-T Mini
+    # (frontend needs to warm up to achieve specified TOF precision)
+    if device_type == "Visionary-T Mini":
+        while True:
+            try:
+                streaming_device.getFrame()
+                break
+            except Exception:
+                continue
+
     # tag::wait_for_frame[]
     # wait for external trigger
     sensor_data = Data.Data()
+    captured_frames = []
+    safe_buffer_limit = count
+    memory_limit_checked = False
+    memory_limit_applied = False
     interrupted = False
     for i in range(count):
         frame_number = None
@@ -119,10 +137,31 @@ def runExternalTriggerDemo(ip_address: str, transport_protocol: str, receiver_ip
             try:
                 streaming_device.getFrame()
                 whole_frame = streaming_device.frame
+                if whole_frame is None:
+                    continue
                 sensor_data.read(whole_frame, convertToMM=False)
                 if sensor_data.depthmap.frameNumber != frame_number:
-                    processSensorData(sensor_data, device_type,
-                                      img_dir, output_prefix, pcl_dir, write_files)
+                    print("Received frame number: {}".format(i + 1))
+                    if hasattr(whole_frame, "copy"):
+                        frame_copy = whole_frame.copy()
+                    else:
+                        frame_copy = bytes(whole_frame)
+
+                    captured_frames.append(frame_copy)
+
+                    if not memory_limit_checked:
+                        safe_buffer_limit = get_safe_buffer_limit(count, estimate_frame_size(frame_copy))
+                        memory_limit_checked = True
+                        memory_limit_applied = safe_buffer_limit < count
+                        if memory_limit_applied:
+                            print("Limiting buffered capture to {} frames to avoid excessive RAM usage.".format(
+                                safe_buffer_limit))
+
+                    if memory_limit_applied and len(captured_frames) >= safe_buffer_limit:
+                        print("Stopping capture after {} buffered frames because the safe in-memory limit was reached.".format(
+                            safe_buffer_limit))
+                        interrupted = True
+                        break
                 frame_number = sensor_data.depthmap.frameNumber
                 break
             except Exception:
@@ -131,6 +170,15 @@ def runExternalTriggerDemo(ip_address: str, transport_protocol: str, receiver_ip
                 print("Interrupted by user")
                 interrupted = True
                 break
+
+    if write_files:
+        for frame_counter, frame in enumerate(captured_frames, start=1):
+            print("====================================")
+            print("Processing frame number: {}".format(frame_counter))
+            sensor_data.read(frame, convertToMM=False)
+            processSensorData(sensor_data, device_type,
+                              img_dir, output_prefix, pcl_dir, write_files,
+                              pointcloud_binary, pointcloud_output)
     # end::wait_for_frame[]
 
     # tag::restore_config[]
@@ -160,7 +208,7 @@ def runExternalTriggerDemo(ip_address: str, transport_protocol: str, receiver_ip
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="This script demonstrates how to read system health variables.")
+        description="This script demonstrates how to acquire frames from a device using an external hardware trigger via configurable I/O pins.")
     parser.add_argument('-i', '--ipAddress', required=False, type=str,
                         default="192.168.1.10", help="The ip address of the device.")
     parser.add_argument('-t', '--transport_protocol', required=False, choices=['TCP', 'UDP'],
@@ -182,6 +230,10 @@ if __name__ == "__main__":
                         default=None, help="Trigger busy I/O pin; default is none for a Visionary-S and INOUT2 for a Visionary-T Mini.")
     parser.add_argument('-w', "--write_files", required=False, type=str, choices=["True", "False"],
                         default="True", help="Write the files to storage if True.")
+    parser.add_argument('--pointcloud_format', required=False, type=str, choices=['ascii', 'binary'],
+                        default='ascii', help="Point cloud format for PCD/PLY: ascii or binary.")
+    parser.add_argument('--pointcloud_output', required=False, type=str, choices=['pcd', 'ply', 'both'],
+                        default='pcd', help="Point cloud output type: pcd, ply, or both.")
     args = parser.parse_args()
 
     device_type = args.device_type
@@ -205,7 +257,9 @@ if __name__ == "__main__":
     cola_protocol, control_port, _ = get_device_config(device_type)
 
     write_files = True if args.write_files == "True" else False
+    pointcloud_binary = True if args.pointcloud_format == "binary" else False
 
     runExternalTriggerDemo(args.ipAddress, args.transport_protocol, args.receiver_ip,
                            cola_protocol, control_port, args.streaming_port, device_type,
-                           args.count, args.output_prefix, port_names, write_files)
+                           args.count, args.output_prefix, port_names, write_files,
+                           pointcloud_binary, args.pointcloud_output)

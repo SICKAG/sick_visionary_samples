@@ -9,8 +9,8 @@ import argparse
 import struct
 import time
 
-from base.python.Control import Control
-from base.python.Usertypes import AcquisitionModeStereo
+from python_base.Control import Control
+from python_base.Usertypes import AcquisitionModeStereo
 from shared.python.devices_config import get_device_config
 
 
@@ -119,7 +119,7 @@ def run_configure_frontend_demo(ip_address: str, cola_protocol: str, control_por
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(
-        description="This script demonstrates how to change the device password.")
+        description="This script demonstrates how to configure the frontend settings of a Visionary-S device, including auto exposure, region of interest (ROI), and integration time.")
     parser.add_argument('-i', '--ip_address', required=False, type=str,
                         default="192.168.1.10", help="The ip address of the device.")
     args = parser.parse_args()
