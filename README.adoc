@@ -17,7 +17,7 @@ For new users we recommended to follow the samples in the following order:
 . link:diagnosing_devices/readme.adoc[Diagnosing devices]
 . link:image_frontend_configuration/readme.adoc[Image frontend configuration]
 . link:image_streaming_and_storing/readme.adoc[Streaming and storing]
-. link:/TODO[Time synchronization]
+. link:time_synchronization/readme.adoc[Time synchronization]
 
 == License
 
@@ -64,12 +64,12 @@ The samples in this repository have been tested with the following platforms:
 | Visionary-T Mini CX (pass:[V3S105-1AAAAAA], pass:[V3S105-1AAAAAD])
 | link:https://www.sick.com/1112649[1112649] link:https://www.sick.com/1132065[1132065]
 | 3D time-of-flight camera
-| 2.1.0 & 3.0.0 & 3.0.1 ✔
+| 3.0.1 & 4.0.1 ✔
 
 | Visionary-S CX (pass:[V3S102-1AAAAAA], pass:[V3S102<area>-1AABAAB])
 | link:https://www.sick.com/1090184[1090184] link:https://www.sick.com/1090185[1090185]
 | 3D structured light stereovision camera with RGB data
-| 6.0.0 & 6.5.0 ✔
+| 6.0.0 & 6.5.2  ✔
 |===
 
 
@@ -85,39 +85,131 @@ footnote:[Only necessary if you have fetched the files from the GitHub repositor
 
 * `git submodule update --init --recursive`
 
-=== Python
+==== Python installation and usage [[python_install]]
+Most of the sample code (see more details below) is designed for use with Python 3.7 to Python 3.11 (code is tested with Python 3.8 and 3.10). Install Python from its link:https://www.python.org/[official website].
+Python 3.8 is recommended and frequently tested, but it is not a strict requirement.
 
-Before you begin, ensure you have met the following requirements:
+If another version is already installed, create an isolated virtual environment using `python -m venv` to ensure compatibility with the samples.
 
-* You have installed `pip`, which is a package manager for Python. If not, you can install it using the following command:
+==== Linux one-command bootstrap
+For Linux users, the repository provides a minimal bootstrap script that uses the system default `python3`, creates a virtual environment and installs Python requirements.
+
+From the repository root directory:
+
+----
+chmod +x setup_linux_env.sh
+./setup_linux_env.sh
+----
+
+Afterwards, activate the environment:
+
+----
+source .venv_sick_visionary_samples/bin/activate
+----
+
+==== Windows one-command bootstrap
+For Windows users, the repository provides a PowerShell bootstrap script that locates `py` or `python`, creates a virtual environment and installs Python requirements.
+
+From the repository root directory in a PowerShell terminal:
+
+----
+.\setup_windows_env.ps1
+----
+
+Afterwards, activate the environment:
+
+----
+.\.venv_sick_visionary_samples\Scripts\Activate.ps1
+----
+
+.Sample how to set up a Python virtual environment
+[%collapsible]
+====
+Any Python version in the supported range (3.7 - 3.11) can be used. The example below uses Python 3.10 (the default on Ubuntu 22.04), but the same steps apply to any compatible version.
+
+*Linux*
+----
+# check the currently used Python version
+$ python3 --version
+Python 3.10.x
+
+# create a virtual environment using the system default python3
+$ python3 -m venv .venv_sick_visionary_samples
+
+# activate the virtual environment
+$ source .venv_sick_visionary_samples/bin/activate
+(.venv_sick_visionary_samples) $ python --version
+Python 3.10.x
+
+# install the requirenments
+(.venv_sick_visionary_samples) $ pip install -r requirements.txt
+
+# To quit/exit the virtual environment
+(.venv_sick_visionary_samples) $ deactivate
+$
+----
+
+*Windows*
+----
+# check the currently used Python version
+C:\projects\visionary_samples> python --version
+Python 3.10.2
+
+# create a virtual environment using the built-in venv module
+C:\projects\visionary_samples> python -m venv .venv_sick_visionary_samples
+
+# activate the virtual environment
+C:\projects\visionary_samples> .venv_sick_visionary_samples\Scripts\activate
+(.venv_sick_visionary_samples) C:\projects\visionary_samples> python --version
+Python 3.10.2
+
+# install the requirenments
+(.venv_sick_visionary_samples) C:\projects\visionary_samples> pip install -r requirements.txt
+
+# To quit/exit the virtual environment
+(.venv_sick_visionary_samples) C:\projects\visionary_samples> deactivate
+C:\projects\visionary_samples>
+----
+All required Python packages needed for working with the samples are defined in xref:requirements.txt[requirements.txt].
+
+NOTE: `requirements.txt` also installs a local shared helper module from `shared/python`.
+Therefore, run the install command from the repository root directory.
+====
+
+.Installation of requirements.txt fails?
+[%collapsible]
+====
+If the installation fails with an error message similar to the following (message may vary depending on the package name):
+----
+ERROR: Could not find a version that satisfies the requirement genicam (from versions: none)
+ERROR: No matching distribution found for genicam
+----
+In this case it is very likely that the package is not provided for your current Python version. This can happen when maintainers of packages need more time to adopt their package to new Python releases. To verify, go to https://pypi.org/ and search for the failing package. Navigate to "Download files" to see a full list of wheel packages. You can derive from the file name which Python versions are supported. Example: if the file name contains `\*-cp311-*` that whl file is for Python version 3.11. +
+With this information you should be able to select the correct Python version to be installed and used in your virtualenv.
+====
+
+
+After activation, run the Python samples from the repository root. E.g. to run the Python Welcome demo, execute the following command from the top-level directory:
+
+[source,bash]
+----
+python3 visionary_welcome/python/welcome.py -i192.168.1.10 -dVisionary-S
+----
+
+Depending on your environment, you may need to use `python` or `python3`. Make sure to adjust the IP address (`-i`) and device type (`-d`) to match your specific device.
+
+To leave the virtual environment, run:
 
 [source,shell]
 ----
-$ sudo apt install python3-pip
-----
-
-* You have installed the following Python libraries: `OpenCV`, `NumPy`, and `CryptodomeX`. If not, you can install them using pip:
-
-[source,shell]
-----
-$ pip3 install opencv-python
-$ pip3 install numpy
-$ pip3 install pycryptodomex
+$ deactivate
 ----
 
 [NOTE]
 ====
-Please replace the installation commands with the appropriate ones for your operating system or Python environment if necessary.
+Replace the installation commands with the equivalent for your operating system or Python environment if necessary.
 ====
 
-To run the Python welcome demo, execute the following command from the top-level directory:
-
-[source,bash]
-----
-python3 -m visionary_welcome.python.welcome -i192.168.1.10 -dVisionary-S
-----
-
-Depending on your environment, you may need to use `python` or `python3`. Remember to adjust the IP address (`-i`) and device type (`-d`) to match your specific device.
 
 === C++
 
@@ -136,13 +228,35 @@ for instance, open the solution in VisualStudio or run make/ninja.
 
 * `cmake --build build`
 
+[NOTE]
+====
+To build `base/cpp` and `shared/cpp` as **shared libraries**, set the CMake variable `BUILD_SHARED_LIBS` to `ON` in the top-level `CMakeLists.txt`:
+
+[source,cmake]
+----
+set(BUILD_SHARED_LIBS ON) // Enable building with shared libraries
+----
+
+When `BUILD_SHARED_LIBS` is enabled, it's recommended to define the runtime output directory so that executables and shared libraries are placed together:
+
+[source,cmake]
+----
+if (BUILD_SHARED_LIBS)
+  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/output)
+endif()
+----
+
+This setup is especially important on **Windows**, where `.exe` and `.dll` files must reside in the same directory for proper execution.
+====
+
+
 To run the C++ welcome demo, follow these steps:
 
-. Navigate to the `build/` directory from the top-level directory:
+. Navigate to the `output/` directory from the top-level directory:
 
 [source,bash]
 ----
-$ cd build/
+$ cd build/output/
 ----
 
 . Execute the `welcome` demo with the specified IP address and device:

@@ -102,7 +102,8 @@ static ExitCode runWelcomeDemo(visionary::VisionaryType visionaryType, const std
     CoLaCommand setIntegrationTimeUsCommand =
       CoLaParameterWriter(CoLaCommandType::WRITE_VARIABLE, "integrationTimeUs").parameterUDInt(3000).build();
     auto setIntegrationTimeUsResponse = visionaryControl->sendCommand(setIntegrationTimeUsCommand);
-    std::cout << "Set integration time to 3000 micro seconds." << "\n";
+    std::cout << "Set integration time to 3000 micro seconds."
+              << "\n";
   }
   else if (visionaryType.toString() == "Visionary-T_Mini")
   {
@@ -110,7 +111,8 @@ static ExitCode runWelcomeDemo(visionary::VisionaryType visionaryType, const std
     CoLaCommand setFramePeriodUsCommand =
       CoLaParameterWriter(CoLaCommandType::WRITE_VARIABLE, "framePeriodUs").parameterUDInt(60000).build();
     auto setFramePeriodUsResponse = visionaryControl->sendCommand(setFramePeriodUsCommand);
-    std::cout << "Set frame period to 60000 micro seconds." << "\n";
+    std::cout << "Set frame period to 60000 micro seconds."
+              << "\n";
   }
 
   if (!visionaryControl->logout())
@@ -161,7 +163,7 @@ static ExitCode runWelcomeDemo(visionary::VisionaryType visionaryType, const std
     std::printf("Failed to log into the device.\n");
     return ExitCode::eAuthenticationError;
   }
-  
+
   writeFrontendMode(visionaryControl, FrontendMode::eContinuous);
   // delete the frame grabber
   pFrameGrabber.reset();

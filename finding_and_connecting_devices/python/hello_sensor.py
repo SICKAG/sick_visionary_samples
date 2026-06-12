@@ -6,7 +6,7 @@
 # SPDX-License-Identifier: Unlicense
 
 import argparse
-from base.python.Control import Control
+from python_base.Control import Control
 from shared.python.devices_config import get_device_config
 
 

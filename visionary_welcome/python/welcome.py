@@ -10,17 +10,17 @@ import os
 import time
 from time import sleep
 
-from base.python.Control import Control
-from base.python.PointCloud.PointCloud import (convertToPointCloud,
+from python_base.Control import Control
+from python_base.PointCloud.PointCloud import (convertToPointCloud,
                                                convertToPointCloudOptimized,
                                                writePointCloudToPCD,
                                                writePointCloudToPLY)
-from base.python.Stream import Streaming
-from base.python.Streaming import Data
-from base.python.Streaming.BlobServerConfiguration import BlobClientConfig
+from python_base.Stream import Streaming
+from python_base.Streaming import Data
+from python_base.Streaming.BlobServerConfiguration import BlobClientConfig
 from shared.python.framewrite import writeFrame
 from shared.python.devices_config import get_device_config
-from base.python.Usertypes import FrontendMode
+from python_base.Usertypes import FrontendMode
 
 
 def runWelcomeDemo(ip_address: str, cola_protocol: str, control_port: int, device_type: str):

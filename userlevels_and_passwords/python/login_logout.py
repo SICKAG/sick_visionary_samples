@@ -8,7 +8,7 @@
 import argparse
 import struct
 
-from base.python.Control import Control
+from python_base.Control import Control
 from shared.python.devices_config import get_device_config
 
 
@@ -80,7 +80,7 @@ def runLoginLogoutDemo(ip_address: str, cola_protocol: str, control_port: int):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(
-        description="This script demonstrates how to change the device password.")
+        description="This script demonstrates how to log in and out of a device at the SERVICE user level and read/write device variables.")
     parser.add_argument('-i', '--ip_address', required=False, type=str,
                         default="192.168.1.10", help="The ip address of the device.")
     parser.add_argument('-t', '--type', required=False, type=str,

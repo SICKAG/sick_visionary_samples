@@ -11,11 +11,10 @@ import sys
 import traceback
 from typing import Tuple
 
-from base.python.Control import Control
-from base.python.Usertypes import UserLevel
+from python_base.Control import Control
+from python_base.Usertypes import UserLevel
 from shared.python.devices_config import get_device_config
-
-from .crypto_utils import createEncryptedMessage
+from shared.python.crypto_utils import createEncryptedMessage
 
 
 def getChallenge(device_control: Control, sul_version: int, user_level: int) -> Tuple[Tuple[int, ...], Tuple[int, ...]]:

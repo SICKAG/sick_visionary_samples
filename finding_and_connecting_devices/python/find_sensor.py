@@ -7,7 +7,7 @@
 
 import argparse
 
-from base.python.Protocol.AutoIp import AutoIp
+from python_base.Protocol.AutoIp import AutoIp
 
 def runFindSensorDemo(ip_address:str):
     # tag::find_sensor[]

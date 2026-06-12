@@ -109,8 +109,9 @@ static ExitCode runDemo(visionary::VisionaryType visionaryType, const std::strin
   }
   else
   {
-    std::fprintf(
-      stdout, "Updated SysTemperatureWarningMargin: %d degree Celsius\n", CoLaParameterReader(getWarnMarginResponse).readInt());
+    std::fprintf(stdout,
+                 "Updated SysTemperatureWarningMargin: %d degree Celsius\n",
+                 CoLaParameterReader(getWarnMarginResponse).readInt());
   }
 
   // Finally restore the original value for SysTemperatureWarningMargin variable
@@ -191,9 +192,12 @@ int main(int argc, char* argv[])
 
   if (showHelpAndExit)
   {
-    std::cout << argv[0] << " [option]*" << "\n";
-    std::cout << "where option is one of" << "\n";
-    std::cout << "-h          show this help and exit" << "\n";
+    std::cout << argv[0] << " [option]*"
+              << "\n";
+    std::cout << "where option is one of"
+              << "\n";
+    std::cout << "-h          show this help and exit"
+              << "\n";
     std::cout << "-i<IP>      connect to the device with IP address <IP>; default is " << deviceIpAddr << "\n";
     std::cout << "-t<typename> visionary product type; default is '" << visionaryType.toString() << "\n";
 

@@ -3,6 +3,35 @@
 This document provides a summary of all notable changes for the Visionary samples collection.
 For a detailed view of what was changed, please refer to the repository's commit history.
 
+== 1.4.0
+
+=== Changed
+
+* Formatting cleanup across C++ sample applications and shared C++ helper files.
+* Updated Python setup instructions in the top-level README, including a minimal virtual-environment workflow.
+* Split top-level dependency files into customer-facing `requirements.txt` and internal `requirements_internal.txt`.
+* Added `.venv` to `.gitignore`.
+
+=== Fixed
+
+* Improved UDP frame handling in C++ streaming samples by validating complete UDP blobs, detecting missing fragments, and skipping invalid/incomplete UDP payloads.
+* Updated Visionary-T Mini warm-up handling in streaming samples to explicitly consume/drop dummy frames before normal acquisition to improve robustness of captured data.
+
+=== Added
+
+* Time synchronization sample showing NTP and PTP synchronization of the devive time
+* Shared Python frame-buffer utility module `shared/python/frame_buffer_limits.py`.
+* Memory-safe buffered frame limiting in Python streaming samples (`continuous_streaming.py`, `snapshots.py`, `external_trigger.py`).
+
+=== Known Issues
+
+=== Compatibility
+
+=== Supported devices
+
+* Visionary-T Mini CX versions 2.x, 3.x, 4.x
+* Visionary-S CX versions 6.x
+
 == 1.3.0
 
 === Changed

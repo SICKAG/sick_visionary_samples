@@ -7,7 +7,7 @@
 
 import struct
 
-from base.python.Usertypes import InputFunctionType, IOFunctionType
+from python_base.Usertypes import InputFunctionType, IOFunctionType
 
 
 class DioPortNames:

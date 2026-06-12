@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "visionary-samples-shared"
+version = "0.1.0"
+description = "Shared Python utilities for visionary_samples"
+requires-python = ">=3.9"
+dependencies = [
+    "numpy",
+    "opencv-python",
+    "psutil",
+    "visionary-python-base",
+]
+
+[tool.setuptools]
+packages = ["shared.python"]
+
+[tool.setuptools.package-dir]
+"shared.python" = "."

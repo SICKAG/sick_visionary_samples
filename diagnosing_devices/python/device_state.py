@@ -8,8 +8,8 @@
 import argparse
 import struct
 
-from base.python.Control import Control
-from base.python.Usertypes import ThreeLevels
+from python_base.Control import Control
+from python_base.Usertypes import ThreeLevels
 from shared.python.devices_config import get_device_config
 from shared.python.error_decode import decode_error_code
 
@@ -61,7 +61,7 @@ def runDiagnosticsDemo(ip_address: str, cola_protocol: str, control_port: int):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(
-        description="This script demonstrates how to change the device password.")
+        description="This script demonstrates how to read diagnostic information such as temperature, voltage, and error states from a device.")
     parser.add_argument('-i', '--ip_address', required=False, type=str,
                         default="192.168.1.10", help="The ip address of the device.")
     parser.add_argument('-d', '--device_type', required=False, type=str,

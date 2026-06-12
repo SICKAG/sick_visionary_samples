@@ -1,0 +1,7 @@
+opencv-python
+numpy
+scikit-image
+pycryptodomex
+psutil
+-e ./base/python
+-e ./shared/python

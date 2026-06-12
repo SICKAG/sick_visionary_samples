@@ -40,7 +40,7 @@ public:
   };
 
   BinningOption(int value);
-  operator int() const;
+              operator int() const;
   std::string to_str() const;
 
 private:

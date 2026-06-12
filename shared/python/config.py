@@ -6,8 +6,8 @@
 # SPDX-License-Identifier: Unlicense
 
 from dataclasses import dataclass
-from base.python.Usertypes import FrontendMode, InputFunctionType, IOFunctionType
-from base.python.Control import Control
+from python_base.Usertypes import FrontendMode, InputFunctionType, IOFunctionType
+from python_base.Control import Control
 from .ioports import readDioFunction, writeDioFunction, DioPortNames
 
 

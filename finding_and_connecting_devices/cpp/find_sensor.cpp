@@ -92,14 +92,22 @@ int main(int argc, char* argv[])
 
   if (showHelpAndExit)
   {
-    std::cout << argv[0] << " [option]*" << "\n";
-    std::cout << "where option is one of" << "\n";
-    std::cout << "-h          show this help and exit" << "\n";
-    std::cout << "-i<IP>      ip address of the interface on which the scan is performed." << "\n"
-              << "            It is expected to be in a CIDR manner, " << "\n"
-              << "            i.e., using ip address and the length of network prefix seperated by /. " << "\n"
-              << "            For example, -i192.168.1.100/24" << "\n"
-              << "            Note the range of prefix is [0, 32]. " << "\n";
+    std::cout << argv[0] << " [option]*"
+              << "\n";
+    std::cout << "where option is one of"
+              << "\n";
+    std::cout << "-h          show this help and exit"
+              << "\n";
+    std::cout << "-i<IP>      ip address of the interface on which the scan is performed."
+              << "\n"
+              << "            It is expected to be in a CIDR manner, "
+              << "\n"
+              << "            i.e., using ip address and the length of network prefix seperated by /. "
+              << "\n"
+              << "            For example, -i192.168.1.100/24"
+              << "\n"
+              << "            Note the range of prefix is [0, 32]. "
+              << "\n";
 
     return static_cast<int>(exitCode);
   }

@@ -60,7 +60,7 @@ Either build and run the samples from the top level directory as described in xr
 **Continuous streaming**
 [source,bash]
 ----
-cd build/
+cd build/output/
 ./continuous_streaming -dVisionary-S -i192.168.1.10 -tTCP -n1
 # or
 ./continuous_streaming -dVisionary-S -i192.168.1.10 -tUDP -r192.168.1.100 -s80 -n1
@@ -69,7 +69,7 @@ cd build/
 **Snapshots**
 [source,bash]
 ----
-cd build/
+cd build/output/
 ./snapshots -dVisionary-S  -i192.168.1.10 -tTCP -n1
 # or
 ./snapshots -dVisionary-S -i192.168.1.10 -tUDP -r192.168.1.100 -s80 -n1
@@ -78,7 +78,7 @@ cd build/
 **External trigger**
 [source,bash]
 ----
-cd build/
+cd build/output/
 ./external_trigger -dVisionary-S -i192.168.1.10 -tTCP -n1
 # or
 ./snapshots -dVisionary-S -i192.168.1.10 -tUDP -r192.168.1.100 -s80 -n1
@@ -96,26 +96,54 @@ To run the Python samples, execute the following command from the **top-level di
 **Continuous streaming**
 [source,bash]
 ----
-python3 -m image_streaming_and_storing.python.continuous_streaming -i192.168.1.10 -n1 -dVisionary-S
+python3 image_streaming_and_storing/python/continuous_streaming.py -i192.168.1.10 -n1 -dVisionary-S
 # or
-python3 -m image_streaming_and_storing.python.continuous_streaming -dVisionary-S -i192.168.1.10 -tUDP -r192.168.1.100 -s80 -n1
+python3 image_streaming_and_storing/python/continuous_streaming.py -dVisionary-S -i192.168.1.10 -tUDP -r192.168.1.100 -s80 -n1
 ----
 
 **Snapshots**
 [source,bash]
 ----
-python3 -m image_streaming_and_storing.python.snapshots -i192.168.1.10 -n1 -dVisionary-S
+python3 image_streaming_and_storing/python/snapshots.py -i192.168.1.10 -n1 -dVisionary-S
 # or
-python3 -m image_streaming_and_storing.python.snapshots -dVisionary-S -i192.168.1.10 -tUDP -r192.168.1.100 -s80 -n1
+python3 image_streaming_and_storing/python/snapshots.py -dVisionary-S -i192.168.1.10 -tUDP -r192.168.1.100 -s80 -n1
 ----
 
 **External trigger**
 [source,bash]
 ----
-python3 -m image_streaming_and_storing.python.external_trigger -i192.168.1.10 -n1 -dVisionary-S
+python3 image_streaming_and_storing/python/external_trigger.py -i192.168.1.10 -n1 -dVisionary-S
 # or
-python3 -m image_streaming_and_storing.python.external_trigger -dVisionary-S -i192.168.1.10 -tUDP -r192.168.1.100 -s80 -n1
+python3 image_streaming_and_storing/python/external_trigger.py -dVisionary-S -i192.168.1.10 -tUDP -r192.168.1.100 -s80 -n1
 ----
+
+[NOTE]
+====
+For Python samples, you can select point cloud file type and format:
+
+* `--pointcloud_output pcd|ply|both` selects output file type(s)
+* `--pointcloud_format ascii|binary` selects encoding for both PCD and PLY
+
+Examples:
+
+[source,bash]
+----
+# Binary PCD
+python3 image_streaming_and_storing/python/snapshots.py -i192.168.1.10 -n1 -dVisionary-S --pointcloud_output pcd --pointcloud_format binary
+----
+
+[source,bash]
+----
+# Binary PLY
+python3 image_streaming_and_storing/python/snapshots.py -i192.168.1.10 -n1 -dVisionary-S --pointcloud_output ply --pointcloud_format binary
+----
+
+[source,bash]
+----
+# Binary PCD and PLY
+python3 image_streaming_and_storing/python/snapshots.py -i192.168.1.10 -n1 -dVisionary-S --pointcloud_output both --pointcloud_format binary
+----
+====
 
 == Continuous streaming
 
@@ -305,45 +333,54 @@ For details on how to access the frame metadata and the maps see <<Processing th
 ==== UDP: Read the buffer and parse the data
 For UDP, we first open a UDP socket and receive the data into a buffer. Each frame/blob consists of multiple fragments. We receive all fragments in a loop, reassemble them into a blob, and then parse it.
 
+[IMPORTANT]
+====
+Info for customers (Linux): For stable UDP streaming, make sure the OS receive buffer limit is large enough. The sample configures `SO_RCVBUF` in the C++ networking layer, but Linux will cap this value by `net.core.rmem_max`.
+
+Check current limit:
+
+[source,bash]
+----
+sysctl net.core.rmem_max
+----
+
+Temporarily set to 4 MiB (until reboot):
+
+[source,bash]
+----
+sudo sysctl -w net.core.rmem_max=4194304
+----
+
+If you increase the internal receive buffer in code (for example to 10 MiB), set `net.core.rmem_max` accordingly (for example `10485760`) to avoid dropped frames or receive issues.
+====
+
 [source,c++]
 ----
 pDataHandler = visionaryControl->createDataHandler();
 
-      std::map<std::uint16_t, ITransport::ByteBuffer> fragmentMap;
-      ITransport::ByteBuffer                          buffer;
-      int                                             received;
-      std::size_t                                     maxBytesToReceive = 1024;
-      std::uint16_t                                   lastFrameNum      = 0;
+      ITransport::ByteBuffer completeBlob;
+      std::uint16_t          blobNumber            = 0;
+      bool                   lostFragmentsDetected = false;
 
-      // Receive from UDP Socket
-      buffer.resize(maxBytesToReceive);
-      received = udpSocket->read(buffer);
-
-      std::cout << "========== new BLOB received ==========" << "\n";
-      std::cout << "Blob number: " << ((buffer[0] << 8) | buffer[1]) << "\n";
-      std::cout << "server IP: " << ipAddress << "\n";
-      std::cout << "========================================" << "\n";
-
-      // FIN Flag of Statemap in header is set when new BLOB begins
-      while (buffer[6] != 0x80)
+      const bool receivedBlob = receiveCompleteUdpBlob(*udpSocket, completeBlob, blobNumber, lostFragmentsDetected);
+      if (!receivedBlob)
       {
-        std::uint16_t fragmentNumber = (static_cast<std::uint16_t>(buffer[2]) << 8) | buffer[3];
-        if (fragmentNumber - lastFrameNum > 1)
-          printf(
-            "Lost %d frames between Frames: %d %d \n", fragmentNumber - lastFrameNum, lastFrameNum, fragmentNumber);
-        lastFrameNum = fragmentNumber;
-        ITransport::ByteBuffer fragment(
-          buffer.begin() + 14, buffer.end() - 1); // Payload begins at byteindex 14, Last element contains checksum
-        fragmentMap[fragmentNumber] = fragment;
-        received                    = udpSocket->read(buffer);
+        std::fprintf(stderr, "Skipping invalid UDP BLOB for requested frame index %u.\n", i);
+        continue;
       }
-      int                    fragmentNumber = (buffer[2] << 8) | buffer[3];
-      ITransport::ByteBuffer last_fragment(buffer.begin() + 14, buffer.end() - 1);
-      fragmentMap[fragmentNumber] = last_fragment;
 
-      auto completeBlob = reassembleFragments(fragmentMap);
+      if (lostFragmentsDetected)
+      {
+        std::fprintf(stderr, "Skipping UDP BLOB with missing fragments for requested frame index %u.\n", i);
+        continue;
+      }
 
-      parseUdpBlob(completeBlob, pDataHandler);
+      const bool parseOk = parseUdpBlob(completeBlob, pDataHandler);
+      if (!parseOk)
+      {
+        std::fprintf(stderr, "Skipping incomplete/invalid UDP BLOB for requested frame index %u.\n", i);
+        continue;
+      }
       
 ----
 
@@ -371,25 +408,8 @@ if (transportProtocol == "TCP")
         std::printf("Frame received in continuous mode, frame #%" PRIu32 "\n", pDataHandler->getFrameNum());
         if (storeData)
         {
-          // write the frame to disk
-          writeFrame(visionaryType, *pDataHandler, filePrefix);
-
-          // Convert data to a point cloud
-          std::vector<PointXYZ> pointCloud;
-          pDataHandler->generatePointCloud(pointCloud);
-          pDataHandler->transformPointCloud(pointCloud);
-
-          // Write point cloud to PLY
-          const std::string framePrefix  = std::to_string(pDataHandler->getFrameNum());
-          std::string       plyFilePath  = framePrefix + "-pointcloud.ply";
-          const char*       cPlyFilePath = plyFilePath.c_str();
-          std::printf("Writing frame to %s\n", cPlyFilePath);
-
-          if (visionaryType == VisionaryType::eVisionaryS)
-            PointCloudPlyWriter::WriteFormatPLY(cPlyFilePath, pointCloud, pDataHandler->getRGBAMap(), true);
-          else
-            PointCloudPlyWriter::WriteFormatPLY(cPlyFilePath, pointCloud, pDataHandler->getIntensityMap(), true);
-          std::printf("Finished writing frame to %s\n", cPlyFilePath);
+          acquiredFrames.push_back(pDataHandler);
+          pDataHandler = visionaryControl->createDataHandler();
         }
       }
     }
@@ -400,18 +420,52 @@ if (transportProtocol == "TCP")
 [source, python]
 ----
 sensor_data = Data.Data()
+    captured_frames = []
+    safe_buffer_limit = count
+    memory_limit_checked = False
+    memory_limit_applied = False
     try:
         number_frames = count
         while number_frames > 0:
             streaming_device.getFrame()
+            print("Received frame number: {}".format(count - number_frames + 1))
             whole_frame = streaming_device.frame
-            sensor_data.read(whole_frame, convertToMM=False)
-            processSensorData(sensor_data, device_type,
-                              img_dir, output_prefix, pcl_dir, write_files)
+            if whole_frame is None:
+                number_frames -= 1
+                continue
+            if hasattr(whole_frame, "copy"):
+                frame_copy = whole_frame.copy()
+            else:
+                frame_copy = bytes(whole_frame)
+
+            captured_frames.append(frame_copy)
+
+            if not memory_limit_checked:
+                safe_buffer_limit = get_safe_buffer_limit(count, estimate_frame_size(frame_copy))
+                memory_limit_checked = True
+                memory_limit_applied = safe_buffer_limit < count
+                if memory_limit_applied:
+                    print("Limiting buffered capture to {} frames to avoid excessive RAM usage.".format(
+                        safe_buffer_limit))
+
+            if memory_limit_applied and len(captured_frames) >= safe_buffer_limit:
+                print("Stopping capture after {} buffered frames because the safe in-memory limit was reached.".format(
+                    safe_buffer_limit))
+                break
+
             number_frames -= 1
 
     except KeyboardInterrupt:
         print("Terminating")
+
+    if write_files:
+        for frame_counter, frame in enumerate(captured_frames, start=1):
+            print("====================================")
+            print("Processing frame number: {}".format(frame_counter))
+            sensor_data.read(frame, convertToMM=False)
+            processSensorData(sensor_data, device_type,
+                            img_dir, output_prefix, pcl_dir, write_files,
+                            pointcloud_binary, pointcloud_output)
     
 ----
 
@@ -638,45 +692,32 @@ lastSnapTime = std::chrono::steady_clock::now();
     {
       pDataHandler = visionaryControl->createDataHandler();
 
-      std::map<std::uint16_t, ITransport::ByteBuffer> fragmentMap;
-      ITransport::ByteBuffer                          buffer;
-      int                                             received;
-      std::size_t                                     maxBytesToReceive = 1024;
-      std::uint16_t                                   lastFrameNum      = 0;
+      ITransport::ByteBuffer completeBlob;
+      std::uint16_t          blobNumber            = 0;
+      bool                   lostFragmentsDetected = false;
 
-      // Receive from UDP Socket
-      buffer.resize(maxBytesToReceive);
-      received = udpSocket->read(buffer);
+      const bool receivedBlob = receiveCompleteUdpBlob(*udpSocket, completeBlob, blobNumber, lostFragmentsDetected);
 
-      std::cout << "========== new BLOB received ==========" << "\n";
-      std::cout << "Blob number: " << ((buffer[0] << 8) | buffer[1]) << "\n";
-      std::cout << "server IP: " << ipAddress << "\n";
-      std::cout << "========================================" << "\n";
-
-      // FIN Flag of Statemap in header is set when new BLOB begins
-      while (buffer[6] != 0x80)
+      if (!receivedBlob)
       {
-        std::uint16_t fragmentNumber = (static_cast<std::uint16_t>(buffer[2]) << 8) | buffer[3];
-        if (fragmentNumber - lastFrameNum > 1)
-          printf(
-            "Lost %d frames between Frames: %d %d \n", fragmentNumber - lastFrameNum, lastFrameNum, fragmentNumber);
-        lastFrameNum = fragmentNumber;
-        ITransport::ByteBuffer fragment(
-          buffer.begin() + 14, buffer.end() - 1); // Payload begins at byteindex 14, Last element contains checksum
-        fragmentMap[fragmentNumber] = fragment;
-        // std::cout << "Fragment number: " << fragmentNumber << "\n";
-        received = udpSocket->read(buffer);
+        std::fprintf(stderr, "Skipping invalid UDP BLOB for requested snapshot index %d.\n", i);
+        continue;
       }
-      int fragmentNumber = (buffer[2] << 8) | buffer[3];
-      // std::cout << "Fragment number: " << fragmentNumber << "\n";
-      ITransport::ByteBuffer last_fragment(buffer.begin() + 14, buffer.end() - 1);
-      fragmentMap[fragmentNumber] = last_fragment;
 
-      auto completeBlob = reassembleFragments(fragmentMap);
+      if (lostFragmentsDetected)
+      {
+        std::fprintf(stderr, "Skipping UDP BLOB with missing fragments for requested snapshot index %d.\n", i);
+        continue;
+      }
 
-      parseUdpBlob(completeBlob, pDataHandler);
+      const bool parseOk = parseUdpBlob(completeBlob, pDataHandler);
+      if (!parseOk)
+      {
+        std::fprintf(stderr, "Skipping incomplete/invalid UDP BLOB for requested snapshot index %d.\n", i);
+        continue;
+      }
 
-      std::printf("Frame received in continuous mode, frame #%" PRIu32 "\n", pDataHandler->getFrameNum());
+      std::printf("Frame received in snapshot mode, frame #%" PRIu32 "\n", pDataHandler->getFrameNum());
 
       if (storeData)
       {
@@ -698,7 +739,7 @@ lastSnapTime = std::chrono::steady_clock::now();
           PointCloudPlyWriter::WriteFormatPLY(cPlyFilePath, pointCloud, pDataHandler->getRGBAMap(), true);
         else
           PointCloudPlyWriter::WriteFormatPLY(cPlyFilePath, pointCloud, pDataHandler->getIntensityMap(), true);
-        std::printf("Finished writing frame to %s\n", cPlyFilePath);
+        std::printf("Finished writing frame to %s\n\n", cPlyFilePath);
       }
     }
     
@@ -712,9 +753,28 @@ lastSnapTime = std::chrono::steady_clock::now();
         device_control.singleStep()
         streaming_device.getFrame()
         whole_frame = streaming_device.frame
-        sensor_data.read(whole_frame, convertToMM=False)
-        processSensorData(sensor_data, device_type,
-                          img_dir, output_prefix, pcl_dir, write_files)
+        print("Received frame number: {}".format(i + 1))
+        if whole_frame is None:
+            continue
+        if hasattr(whole_frame, "copy"):
+            frame_copy = whole_frame.copy()
+        else:
+            frame_copy = bytes(whole_frame)
+
+        captured_frames.append(frame_copy)
+
+        if not memory_limit_checked:
+            safe_buffer_limit = get_safe_buffer_limit(number_frames, estimate_frame_size(frame_copy))
+            memory_limit_checked = True
+            memory_limit_applied = safe_buffer_limit < number_frames
+            if memory_limit_applied:
+                print("Limiting buffered capture to {} frames to avoid excessive RAM usage.".format(
+                    safe_buffer_limit))
+
+        if memory_limit_applied and len(captured_frames) >= safe_buffer_limit:
+            print("Stopping capture after {} buffered frames because the safe in-memory limit was reached.".format(
+                safe_buffer_limit))
+            break
         
 ----
 
@@ -1009,6 +1069,10 @@ while (!pFrameGrabber->genGetNextFrame(pDataHandler, false))
 ----
 # wait for external trigger
     sensor_data = Data.Data()
+    captured_frames = []
+    safe_buffer_limit = count
+    memory_limit_checked = False
+    memory_limit_applied = False
     interrupted = False
     for i in range(count):
         frame_number = None
@@ -1017,10 +1081,31 @@ while (!pFrameGrabber->genGetNextFrame(pDataHandler, false))
             try:
                 streaming_device.getFrame()
                 whole_frame = streaming_device.frame
+                if whole_frame is None:
+                    continue
                 sensor_data.read(whole_frame, convertToMM=False)
                 if sensor_data.depthmap.frameNumber != frame_number:
-                    processSensorData(sensor_data, device_type,
-                                      img_dir, output_prefix, pcl_dir, write_files)
+                    print("Received frame number: {}".format(i + 1))
+                    if hasattr(whole_frame, "copy"):
+                        frame_copy = whole_frame.copy()
+                    else:
+                        frame_copy = bytes(whole_frame)
+
+                    captured_frames.append(frame_copy)
+
+                    if not memory_limit_checked:
+                        safe_buffer_limit = get_safe_buffer_limit(count, estimate_frame_size(frame_copy))
+                        memory_limit_checked = True
+                        memory_limit_applied = safe_buffer_limit < count
+                        if memory_limit_applied:
+                            print("Limiting buffered capture to {} frames to avoid excessive RAM usage.".format(
+                                safe_buffer_limit))
+
+                    if memory_limit_applied and len(captured_frames) >= safe_buffer_limit:
+                        print("Stopping capture after {} buffered frames because the safe in-memory limit was reached.".format(
+                            safe_buffer_limit))
+                        interrupted = True
+                        break
                 frame_number = sensor_data.depthmap.frameNumber
                 break
             except Exception:
@@ -1029,6 +1114,15 @@ while (!pFrameGrabber->genGetNextFrame(pDataHandler, false))
                 print("Interrupted by user")
                 interrupted = True
                 break
+
+    if write_files:
+        for frame_counter, frame in enumerate(captured_frames, start=1):
+            print("====================================")
+            print("Processing frame number: {}".format(frame_counter))
+            sensor_data.read(frame, convertToMM=False)
+            processSensorData(sensor_data, device_type,
+                              img_dir, output_prefix, pcl_dir, write_files,
+                              pointcloud_binary, pointcloud_output)
     
 ----
 

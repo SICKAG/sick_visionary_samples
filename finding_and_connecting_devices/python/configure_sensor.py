@@ -8,7 +8,7 @@
 import argparse
 
 from enum import Enum
-from base.python.Protocol.AutoIp import AutoIp
+from python_base.Protocol.AutoIp import AutoIp
 
 # Define cola version enums
 class ColaVersion(Enum):
@@ -24,7 +24,7 @@ def runConfigureSensorIPDemo(ip_address:str, mac_address:str, cola_version:int, 
 
     print("Configuration succeeded!") if succ else print("Configuration failed!")
 
-parser = argparse.ArgumentParser(description="This script scans the devices in the network and outputs their device information.")
+parser = argparse.ArgumentParser(description="This script configures the IP settings of a device in the network using AutoIP.")
 parser.add_argument('-o', '--macAddress', required=True, type=str,
                     help="MAC address of the device to assign.")
 parser.add_argument('-i', '--interfaceIp', required=True, type=str,

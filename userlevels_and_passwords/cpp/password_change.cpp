@@ -398,9 +398,12 @@ int main(int argc, char* argv[])
 
   if (showHelpAndExit)
   {
-    std::cout << argv[0] << " [option]*" << "\n";
-    std::cout << "where option is one of" << "\n";
-    std::cout << "-h          show this help and exit" << "\n";
+    std::cout << argv[0] << " [option]*"
+              << "\n";
+    std::cout << "where option is one of"
+              << "\n";
+    std::cout << "-h          show this help and exit"
+              << "\n";
     std::cout << "-i<IP>      connect to the device with IP address <IP>; "
                  "default is "
               << deviceIpAddr << "\n";

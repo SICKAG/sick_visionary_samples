@@ -21,22 +21,29 @@ Either build and run the samples from the top level directory as described in xr
 **Find sensor**
 [source,bash]
 ----
-cd build/
+cd build/output/
 ./find_sensor -i192.168.1.100/24
 ----
 
 **Configure sensor**
 [source,bash]
 ----
-cd build/
+cd build/output/
 configure_sensor -oXX:XX:XX:XX:XX:XX -c1 -i192.168.1.10/24 -n192.168.136.101 -m255.255.255.0
 ----
 
 **Hello sensor**
 [source,bash]
 ----
-cd build/
+cd build/output/
 ./hello_sensor -i192.168.1.10 -dVisionary-S
+----
+
+**Reconnect sample**
+[source,bash]
+----
+cd build/output/
+./reconnect_sample -i192.168.1.10 -tVisionary-S -mrecreate
 ----
 
 **Python**
@@ -51,19 +58,25 @@ To run the Python samples, execute the following command from the **top-level di
 **Find sensor**
 [source,bash]
 ----
-python3 -m finding_and_connecting_devices.python.find_sensor -i"192.168.136.1/24"
+python3 finding_and_connecting_devices/python/find_sensor.py -i"192.168.136.1/24"
 ----
 
 **Configure sensor**
 [source,bash]
 ----
-python -m finding_and_connecting_devices.python.configure_sensor -i"192.168.136.1/24" -o"XX:XX:XX:XX:XX:XX" -n"192.168.136.13" -m"255.255.255.0" -c"2"
+python finding_and_connecting_devices/python/configure_sensor.py -i"192.168.136.1/24" -o"XX:XX:XX:XX:XX:XX" -n"192.168.136.13" -m"255.255.255.0" -c"2"
 ----
 
 **Hello sensor**
 [source,bash]
 ----
-python -m finding_and_connecting_devices.python.hello_sensor -i"192.168.136.10" -d"Visionary-T Mini"
+python finding_and_connecting_devices/python/hello_sensor.py -i"192.168.136.10" -d"Visionary-T Mini"
+----
+
+**Reconnect sample**
+[source,bash]
+----
+python -m finding_and_connecting_devices.python.reconnect_sample -i"192.168.136.10" -d"Visionary-T Mini" --reconnect-mode recreate
 ----
 
 == Find and configure
@@ -89,7 +102,7 @@ where option is one of
 
 To actually perform a find_sensor the mandatory parameters -i need to be provided e.g. `./build/find_sensor -i192.168.1.100/24`.
 
-==== Code exapmple
+==== Code example
 
 **Step 1**: Instantiate VisionaryAutoIP
 
@@ -245,7 +258,7 @@ using namespace visionary;
 ----
 
 NOTE: Run the python script from the repository root with the following command:
-      *python3 -m finding_and_connecting_devices.python.hello_sensor -iDEVICEIP -tDEVICETYPE*.
+      *python3 finding_and_connecting_devices/python/hello_sensor.py -iDEVICEIP -tDEVICETYPE*.
       Change DEVICEIP and DEVICETYPE to match your device.
 
 **Python**
@@ -291,4 +304,173 @@ In python we call the `close()` method.
 ----
 deviceControl.close()
     
+----
+
+=== Reconnect Sample
+
+This example demonstrates how to monitor connection stability and automatically recover from a lost connection to a Visionary camera device. The sample polls the device identity in a loop and attempts to reconnect whenever the connection is lost — for example, after unplugging and replugging the Ethernet cable.
+
+Two reconnect strategies are supported:
+
+* **recreate** (default): a fresh `VisionaryControl` / `Control` object is created for each reconnect attempt.
+* **reuse**: the existing object is kept; `close()` and `open()` are called on it to re-establish the connection.
+
+==== Usage
+
+**C++**
+
+----
+./build/reconnect_sample [option]*
+where option is one of
+-h              show this help and exit
+-i<IP>          connect to device with IP <IP>; default is 192.168.1.10
+-t<typename>    visionary product type; default is Visionary-T Mini
+-p<ms>          poll interval in ms for getDeviceIdent(); default is 1000
+-r<ms>          reconnect interval in ms after connection loss; default is 1000
+-m<mode>        reconnect mode: recreate | reuse; default is recreate
+-a<0|1>         enable VisionaryControl autoReconnect in open(); default is 0
+----
+
+**Python**
+
+----
+python -m finding_and_connecting_devices.python.reconnect_sample --help
+
+options:
+  -i, --ipAddress        IP address of the device (default: 192.168.136.10)
+  -d, --device_type      Device type: Visionary-T | Visionary-S | Visionary-T Mini (default: Visionary-T Mini)
+  --poll-interval        Seconds between getIdent() calls while connected (default: 1.0)
+  --reconnect-interval   Seconds to wait before reconnect attempts (default: 1.0)
+  --reconnect-mode       recreate | reuse (default: recreate)
+----
+
+==== Code example
+
+**Step 1**: Establish initial connection
+
+Open a control connection to the device. If the connection cannot be opened, wait for the configured reconnect interval and retry.
+
+**C++**
+[source,c++]
+----
+pControl = std::unique_ptr<visionary::VisionaryControl>(new visionary::VisionaryControl(visionaryType));
+      if (!openControl(*pControl, ipAddress, autoReconnect))
+      {
+        std::cout << "[connect-failed] open() failed\n";
+        pControl.reset();
+        std::this_thread::sleep_for(std::chrono::milliseconds(reconnectIntervalMs));
+        continue;
+      }
+
+      const visionary::DeviceIdent deviceIdent = pControl->getDeviceIdent();
+      if (isDeviceIdentValid(deviceIdent))
+      {
+        std::cout << "[connected] Device Name: '" << deviceIdent.name << "', Device Version: '" << deviceIdent.version
+                  << "'\n";
+      }
+      else
+      {
+        std::cout << "[connected-but-no-ident] getDeviceIdent() returned empty values\n";
+      }
+      
+----
+
+**Python**
+[source,python]
+----
+try:
+                device_control = Control(ip_address, cola_protocol, control_port)
+                device_control.open()
+                name, version = device_control.getIdent()
+                print(f"[connected] DeviceIdent: {name} {version}")
+            except Exception as exc:
+                print(f"[connect-failed] {exc}")
+                safe_close(device_control)
+                device_control = None
+                time.sleep(reconnect_interval)
+                continue
+            
+----
+
+**Step 2**: Poll device identity and detect disconnection
+
+Periodically call `getDeviceIdent()` / `getIdent()`. An empty response or an exception signals that the connection has been lost.
+
+**C++**
+[source,c++]
+----
+const visionary::DeviceIdent deviceIdent = pControl->getDeviceIdent();
+    if (isDeviceIdentValid(deviceIdent))
+    {
+      std::cout << "[alive] Device Name: '" << deviceIdent.name << "', Device Version: '" << deviceIdent.version << "'\n";
+      std::this_thread::sleep_for(std::chrono::milliseconds(pollIntervalMs));
+      continue;
+    }
+
+    std::cout << "[connection-lost] getDeviceIdent() returned empty values\n";
+    
+----
+
+**Python**
+[source,python]
+----
+try:
+            name, version = device_control.getIdent()
+            print(f"[alive] DeviceIdent: {name} {version}")
+            time.sleep(poll_interval)
+        except Exception as exc:
+            print(f"[connection-lost] {exc}")
+            
+----
+
+**Step 3**: Reconnect after connection loss
+
+Depending on the selected reconnect mode either recreate the control object or reuse it by calling `close()` followed by `open()`.
+
+**C++**
+[source,c++]
+----
+if (reconnectMode == ReconnectMode::Reuse)
+    {
+      pControl->close();
+      std::this_thread::sleep_for(std::chrono::milliseconds(reconnectIntervalMs));
+
+      if (openControl(*pControl, ipAddress, autoReconnect))
+      {
+        const visionary::DeviceIdent reconnectIdent = pControl->getDeviceIdent();
+        if (isDeviceIdentValid(reconnectIdent))
+        {
+          std::cout << "[reconnected-reuse] Device Name: '" << reconnectIdent.name
+                    << "', Device Version: '" << reconnectIdent.version << "'\n";
+          continue;
+        }
+      }
+
+      std::cout << "[reuse-open-failed] retry with fresh object\n";
+    }
+
+    pControl->close();
+    pControl.reset();
+    std::this_thread::sleep_for(std::chrono::milliseconds(reconnectIntervalMs));
+    
+----
+
+**Python**
+[source,python]
+----
+if reconnect_mode == "reuse":
+                safe_close(device_control)
+                time.sleep(reconnect_interval)
+                try:
+                    device_control.open()
+                    name, version = device_control.getIdent()
+                    print(f"[reconnected-reuse] DeviceIdent: {name} {version}")
+                    continue
+                except Exception as reconnect_exc:
+                    print(f"[reuse-open-failed] {reconnect_exc}")
+
+            safe_close(device_control)
+            device_control = None
+            time.sleep(reconnect_interval)
+            
 ----

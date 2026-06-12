@@ -16,6 +16,7 @@ endif()
 set(SOURCES
     BlobServerConfig.cpp
     DecodeError.cpp
+    PtpHelpers.cpp
     checkcola.cpp
     framewrite.cpp
     frontendmodes.cpp
@@ -24,6 +25,7 @@ set(SOURCES
     pngwrite.cpp
     usertypes.cpp
     UdpParsing.cpp
+    TimeStampHelper.cpp
 )
 
 # Create a static library with the above sources

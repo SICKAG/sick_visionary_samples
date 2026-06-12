@@ -7,7 +7,7 @@
 
 import argparse
 
-from base.python.Control import Control
+from python_base.Control import Control
 from shared.python.devices_config import get_device_config
 
 
@@ -50,7 +50,7 @@ def runSystemLogDemo(ip_address: str, cola_protocol: str, control_port: int):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(
-        description="This script demonstrates how to change the device password.")
+        description="This script demonstrates how to retrieve and display the device system log.")
     parser.add_argument('-i', '--ip_address', required=False, type=str,
                         default="192.168.1.10", help="The ip address of the device.")
     parser.add_argument('-d', '--device_type', required=False, type=str,
